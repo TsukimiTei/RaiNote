@@ -81,9 +81,8 @@
   border: 1px solid var(--border);
   border-radius: 2px;
 
-  /* 竖排渲染 */
+  /* 竖排渲染（不加 direction: rtl，避免标点错位） */
   writing-mode: vertical-rl;
-  direction: rtl;
   text-orientation: mixed;
 
   font-family: var(--font-main);
@@ -147,7 +146,6 @@
   border-radius: 2px;
 
   writing-mode: vertical-rl;
-  direction: rtl;
   text-orientation: mixed;
   font-family: var(--font-main);
   font-size: inherit;

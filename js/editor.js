@@ -49,9 +49,11 @@ const Editor = (() => {
     updateWordCount()
     updateWriteTime()
 
-    // Scroll editor to right-most position (first column for vertical-rl)
+    // writing-mode: vertical-rl without direction:rtl — columns flow right to left.
+    // scrollLeft=0 naturally shows the rightmost column (document start).
+    // The browser will follow the cursor during typing automatically.
     requestAnimationFrame(() => {
-      el.parentElement.scrollLeft = el.parentElement.scrollWidth
+      el.parentElement.scrollLeft = 0
     })
   }
 

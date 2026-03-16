@@ -8,8 +8,9 @@
 
   await Storage.init()
 
-  let currentMode = 'edit'   // 'edit' | 'read'
-  let currentNote = null
+  let currentMode   = 'edit'   // 'edit' | 'read'
+  let currentNote   = null
+  let isDoubleLayout = false    // shared between edit and read modes
 
   // ─── Init sub-modules ───────────────────────────
 
@@ -93,7 +94,8 @@
       editBtn.classList.remove('active')
       readBtn.classList.add('active')
 
-      // Paginate current note content
+      // Apply current layout to reader and paginate
+      Reader.setLayout(isDoubleLayout)
       const body = Editor.getBody()
       Reader.paginate(body)
     }
@@ -103,9 +105,23 @@
   document.getElementById('readModeBtn').addEventListener('click', () => switchMode('read'))
 
   // ─── Single / Double page toggle ─────────────────
+  // Works in both edit mode (visual divider) and read mode (Reader pagination)
+
+  function applyLayout (double) {
+    isDoubleLayout = double
+    document.getElementById('layoutToggle').textContent = double ? '雙頁' : '單頁'
+
+    // Editor mode: show/hide center divider
+    document.getElementById('editorArea').dataset.layout = double ? 'double' : 'single'
+
+    // Reader mode: re-apply layout if currently reading
+    if (currentMode === 'read') {
+      Reader.setLayout(double)
+    }
+  }
 
   document.getElementById('layoutToggle').addEventListener('click', () => {
-    Reader.toggleLayout()
+    applyLayout(!isDoubleLayout)
   })
 
   // ─── Sidebar toggle ──────────────────────────────
@@ -113,6 +129,14 @@
   document.getElementById('sidebarToggle').addEventListener('click', () => {
     Sidebar.toggle()
   })
+
+  // Responsive: auto-collapse sidebar when window is narrow
+  function handleResize () {
+    if (window.innerWidth < 640 && Sidebar.isOpen()) {
+      Sidebar.toggle() // collapse
+    }
+  }
+  window.addEventListener('resize', handleResize)
 
   // ─── Annotation add button ───────────────────────
 
