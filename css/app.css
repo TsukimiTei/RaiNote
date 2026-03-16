@@ -721,15 +721,6 @@ input[type="range"].style-slider:disabled {
 }
 
 /* ── Yun Agent Reply ─────────────────────────── */
-.yun-status-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
 .yun-dot {
   width: 6px;
   height: 6px;
@@ -780,9 +771,9 @@ input[type="range"].style-slider:disabled {
   font-style: italic;
 }
 
-/* Yun bubble (hover to expand full reply) */
+/* Yun bubble (hover to expand full reply) — fixed to escape parent overflow:hidden */
 .yun-bubble {
-  position: absolute;
+  position: fixed;
   bottom: 36px;
   right: 8px;
   max-width: 360px;

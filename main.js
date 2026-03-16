@@ -64,24 +64,32 @@ ipcMain.handle('fs:writeFile', async (_, filePath, content) => {
 ipcMain.handle('fs:listFiles', async (_, dirPath) => {
   try {
     if (!fs.existsSync(dirPath)) return { ok: true, files: [] }
-    const files = fs.readdirSync(dirPath)
-      .filter(f => f.endsWith('.md'))
-      .map(f => {
-        const fullPath = path.join(dirPath, f)
-        const stat = fs.statSync(fullPath)
-        // Read frontmatter 'created' field for accurate date grouping
-        let created = null
-        try {
-          const content = fs.readFileSync(fullPath, 'utf8')
-          const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
-          if (fmMatch) {
-            const line = fmMatch[1].split('\n').find(l => l.trim().startsWith('created:'))
-            if (line) created = line.slice(line.indexOf(':') + 1).trim()
-          }
-        } catch {}
-        return { name: f, path: fullPath, mtime: stat.mtimeMs, ctime: stat.birthtimeMs, created }
-      })
-      .sort((a, b) => b.mtime - a.mtime)
+    const entries = fs.readdirSync(dirPath).filter(f => f.endsWith('.md'))
+
+    // Build file list with stat info (sync stat is cheap)
+    const files = entries.map(f => {
+      const fullPath = path.join(dirPath, f)
+      const stat = fs.statSync(fullPath)
+      return { name: f, path: fullPath, mtime: stat.mtimeMs, ctime: stat.birthtimeMs, created: null }
+    })
+
+    // Read frontmatter 'created' field async — only first 1KB per file to avoid blocking
+    await Promise.all(files.map(async (entry) => {
+      try {
+        const fd = await fs.promises.open(entry.path, 'r')
+        const buf = Buffer.alloc(1024)
+        const { bytesRead } = await fd.read(buf, 0, 1024, 0)
+        await fd.close()
+        const header = buf.toString('utf8', 0, bytesRead)
+        const fmMatch = header.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+        if (fmMatch) {
+          const line = fmMatch[1].split('\n').find(l => l.trim().startsWith('created:'))
+          if (line) entry.created = line.slice(line.indexOf(':') + 1).trim()
+        }
+      } catch {}
+    }))
+
+    files.sort((a, b) => b.mtime - a.mtime)
     return { ok: true, files }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -155,6 +163,7 @@ ipcMain.handle('config:write', async (_, config) => {
 ipcMain.handle('app:getDataPath', () => app.getPath('userData'))
 
 ipcMain.handle('shell:showInFinder', async (_, filePath) => {
+  console.log('[shell:showInFinder]', filePath, 'exists:', fs.existsSync(filePath))
   shell.showItemInFolder(filePath)
 })
 
@@ -284,6 +293,13 @@ ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
 
       proc.on('close', (code) => {
         yunProcess = null
+        // Flush any remaining buffered data
+        if (buffer.trim()) {
+          fullText += buffer.trim()
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('yun:chunk', buffer.trim())
+          }
+        }
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('yun:done', { ok: code === 0, fullText })
         }
@@ -299,6 +315,10 @@ ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
       })
 
     } catch (err) {
+      // Ensure renderer always receives yun:done to avoid yunIsStreaming stuck true
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('yun:done', { ok: false, error: err.message })
+      }
       resolve({ ok: false, error: err.message })
     }
   })

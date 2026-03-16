@@ -262,7 +262,8 @@ const Sidebar = (() => {
     deleteItem.addEventListener('mouseleave', () => {
       deleteItem.style.background = ''
     })
-    deleteItem.addEventListener('click', async () => {
+    deleteItem.addEventListener('click', async (e) => {
+      e.stopPropagation()
       menu.remove()
       if (!confirm(`確定刪除「${file.name}」？`)) return
       await Storage.deleteNote(file.path)
@@ -284,7 +285,8 @@ const Sidebar = (() => {
     finderItem.addEventListener('mouseleave', () => {
       finderItem.style.background = ''
     })
-    finderItem.addEventListener('click', () => {
+    finderItem.addEventListener('click', (e) => {
+      e.stopPropagation()
       menu.remove()
       window.electron.shell.showInFinder(file.path)
     })

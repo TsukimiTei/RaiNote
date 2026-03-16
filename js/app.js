@@ -122,8 +122,11 @@
     if (!currentNote) return
     const newTitle = titleEl.textContent.trim()
     if (!newTitle) {
-      // Keep empty — the placeholder "无题" will show
-      titleEl.textContent = ''
+      // Restore previous title for titled files; keep empty for date-only files
+      const filename = currentNote.path.split('/').pop()
+      const prevTitle = Storage.extractDisplayTitle(filename)
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(prevTitle)
+      titleEl.textContent = isDateOnly ? '' : prevTitle
       return
     }
 
@@ -677,6 +680,7 @@
   }
 
   let yunDebounceTimer = null
+  let yunStreamingTimeout = null
   let yunIsStreaming = false
   let yunQueuedRequest = false
   let yunReplyHistory = []  // last 10 replies
@@ -693,6 +697,7 @@
   // Listen for stream completion
   window.electron.yun.onDone((result) => {
     yunIsStreaming = false
+    if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
     yunReplyEl.classList.remove('streaming')
 
     if (result.ok && yunFullText) {
@@ -794,6 +799,20 @@ ${historyText}
     yunReplyEl.classList.add('streaming')
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
+
+    // Safety timeout: reset streaming flag if yun:done is never received (60s)
+    if (yunStreamingTimeout) clearTimeout(yunStreamingTimeout)
+    yunStreamingTimeout = setTimeout(() => {
+      if (yunIsStreaming) {
+        yunIsStreaming = false
+        yunReplyEl.classList.remove('streaming')
+        setYunDot('error')
+        if (!yunFullText) {
+          yunReplyEl.textContent = '芸暫時離開了'
+          yunReplyEl.classList.add('error')
+        }
+      }
+    }, 60000)
 
     // Call main process
     window.electron.yun.ask(prompt, projectDir)
