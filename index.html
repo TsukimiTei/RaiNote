@@ -296,21 +296,66 @@
       <!-- 芸 Agent 設置 -->
       <div class="setting-section">
         <div class="setting-section-title">芸</div>
+
+        <!-- Backend 選擇 -->
         <div class="setting-group">
-          <label class="setting-label">項目目錄（Claude Code 工作目錄）</label>
+          <label class="setting-label">連接方式</label>
           <div class="setting-row">
-            <input id="projectDirInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
-            <button id="selectProjectDirBtn" class="btn-secondary">選擇</button>
+            <button class="font-choice yun-backend-choice active" data-backend="cli">Claude CLI</button>
+            <button class="font-choice yun-backend-choice" data-backend="openrouter">OpenRouter</button>
           </div>
-          <p class="setting-hint">設定後，芸會在你寫作時給出回應。需要已安裝 Claude Code CLI。目錄下的 soul.md 定義芸的性格。</p>
         </div>
-        <div class="setting-group" style="margin-top:12px">
-          <label class="setting-label">Claude CLI 路徑</label>
-          <div class="setting-row">
-            <input id="claudePathInput" type="text" class="setting-input" readonly placeholder="未檢測">
-            <button id="detectClaudeBtn" class="btn-secondary">檢測</button>
+
+        <!-- Claude CLI 設置 -->
+        <div id="yunCliSettings">
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">項目目錄（Claude Code 工作目錄）</label>
+            <div class="setting-row">
+              <input id="projectDirInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
+              <button id="selectProjectDirBtn" class="btn-secondary">選擇</button>
+            </div>
+            <p class="setting-hint">目錄下的 soul.md 定義芸的性格</p>
           </div>
-          <p class="setting-hint" id="claudePathHint">點擊「檢測」自動尋找 claude CLI 安裝位置</p>
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">Claude CLI 路徑</label>
+            <div class="setting-row">
+              <input id="claudePathInput" type="text" class="setting-input" readonly placeholder="未檢測">
+              <button id="detectClaudeBtn" class="btn-secondary">檢測</button>
+            </div>
+            <p class="setting-hint" id="claudePathHint">點擊「檢測」自動尋找 claude CLI 安裝位置</p>
+          </div>
+        </div>
+
+        <!-- OpenRouter 設置 -->
+        <div id="yunOpenRouterSettings" style="display:none">
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">API Key</label>
+            <div class="setting-row">
+              <input id="openRouterKeyInput" type="password" class="setting-input" placeholder="sk-or-…">
+            </div>
+            <p class="setting-hint">從 <a href="https://openrouter.ai/keys" style="color:var(--accent)">openrouter.ai/keys</a> 取得</p>
+          </div>
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">模型</label>
+            <div class="setting-row">
+              <select id="openRouterModelSelect" class="setting-input">
+                <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
+                <option value="anthropic/claude-haiku-4">Claude Haiku 4</option>
+                <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                <option value="openai/gpt-4o">GPT-4o</option>
+                <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="deepseek/deepseek-chat-v3">DeepSeek V3</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">Soul（芸的性格設定）</label>
+            <div class="setting-row">
+              <input id="openRouterSoulPath" type="text" class="setting-input" readonly placeholder="選擇 soul.md 文件…">
+              <button id="selectSoulFileBtn" class="btn-secondary">選擇</button>
+            </div>
+            <p class="setting-hint">可選，定義芸的回應風格</p>
+          </div>
         </div>
       </div>
     </div>

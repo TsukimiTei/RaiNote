@@ -561,6 +561,48 @@
     checkYunConnection()
   })
 
+  // ─── Yun backend toggle (CLI vs OpenRouter) ────
+  let yunBackend = 'cli'  // 'cli' | 'openrouter'
+
+  document.querySelectorAll('.yun-backend-choice').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      document.querySelectorAll('.yun-backend-choice').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      yunBackend = btn.dataset.backend
+      document.getElementById('yunCliSettings').style.display = yunBackend === 'cli' ? '' : 'none'
+      document.getElementById('yunOpenRouterSettings').style.display = yunBackend === 'openrouter' ? '' : 'none'
+      const config = await window.electron.config.read()
+      config.yunBackend = yunBackend
+      await window.electron.config.write(config)
+      checkYunConnection()
+    })
+  })
+
+  // OpenRouter API key save on blur
+  document.getElementById('openRouterKeyInput').addEventListener('change', async () => {
+    const config = await window.electron.config.read()
+    config.openRouterKey = document.getElementById('openRouterKeyInput').value.trim()
+    await window.electron.config.write(config)
+    checkYunConnection()
+  })
+
+  // OpenRouter model save on change
+  document.getElementById('openRouterModelSelect').addEventListener('change', async () => {
+    const config = await window.electron.config.read()
+    config.openRouterModel = document.getElementById('openRouterModelSelect').value
+    await window.electron.config.write(config)
+  })
+
+  // Soul file picker for OpenRouter
+  document.getElementById('selectSoulFileBtn').addEventListener('click', async () => {
+    const paths = await window.electron.dialog.openFile({ filters: [{ name: 'Markdown', extensions: ['md', 'txt'] }] })
+    if (!paths || !paths.length) return
+    document.getElementById('openRouterSoulPath').value = paths[0]
+    const config = await window.electron.config.read()
+    config.openRouterSoulPath = paths[0]
+    await window.electron.config.write(config)
+  })
+
   document.getElementById('detectClaudeBtn').addEventListener('click', async () => {
     const btn = document.getElementById('detectClaudeBtn')
     const input = document.getElementById('claudePathInput')
@@ -593,11 +635,18 @@
       document.getElementById('projectDirInput').value = config.projectDir
     }
     // Show current CLI path if known
-    const cliResult = await window.electron.yun.checkCli()
-    document.getElementById('claudePathInput').value = cliResult.ok ? cliResult.path : '未檢測'
-    document.getElementById('claudePathHint').textContent = cliResult.ok
-      ? '已找到 Claude CLI' : '點擊「檢測」自動尋找 claude CLI 安裝位置'
-    document.getElementById('claudePathHint').style.color = ''
+    if (yunBackend === 'cli') {
+      const cliResult = await window.electron.yun.checkCli()
+      document.getElementById('claudePathInput').value = cliResult.ok ? cliResult.path : '未檢測'
+      document.getElementById('claudePathHint').textContent = cliResult.ok
+        ? '已找到 Claude CLI' : '點擊「檢測」自動尋找 claude CLI 安裝位置'
+      document.getElementById('claudePathHint').style.color = ''
+    }
+
+    // Restore OpenRouter fields
+    if (config.openRouterKey) document.getElementById('openRouterKeyInput').value = config.openRouterKey
+    if (config.openRouterModel) document.getElementById('openRouterModelSelect').value = config.openRouterModel
+    if (config.openRouterSoulPath) document.getElementById('openRouterSoulPath').value = config.openRouterSoulPath
 
     document.getElementById('settingsOverlay').classList.remove('hidden')
   }
@@ -710,6 +759,25 @@
     if (config.projectDir) {
       document.getElementById('projectDirInput').value = config.projectDir
     }
+
+    // Yun backend
+    if (config.yunBackend) {
+      yunBackend = config.yunBackend
+      document.querySelectorAll('.yun-backend-choice').forEach(b => {
+        b.classList.toggle('active', b.dataset.backend === yunBackend)
+      })
+      document.getElementById('yunCliSettings').style.display = yunBackend === 'cli' ? '' : 'none'
+      document.getElementById('yunOpenRouterSettings').style.display = yunBackend === 'openrouter' ? '' : 'none'
+    }
+    if (config.openRouterKey) {
+      document.getElementById('openRouterKeyInput').value = config.openRouterKey
+    }
+    if (config.openRouterModel) {
+      document.getElementById('openRouterModelSelect').value = config.openRouterModel
+    }
+    if (config.openRouterSoulPath) {
+      document.getElementById('openRouterSoulPath').value = config.openRouterSoulPath
+    }
   }
 
   await restoreConfig()
@@ -726,23 +794,34 @@
     yunDotEl.className = 'yun-dot' + (state !== 'hidden' ? ' ' + state : '')
   }
 
-  // Check CLI availability and show dot immediately
+  // Check connection availability and show dot
   async function checkYunConnection () {
-    const projectDir = document.getElementById('projectDirInput').value
-    if (!projectDir) { setYunDot('hidden'); yunReplyEl.textContent = ''; return }
-    // Show pending while checking
     setYunDot('pending')
     yunReplyEl.textContent = '芸正在趕來…'
     yunReplyEl.classList.remove('error')
-    const result = await window.electron.yun.checkCli()
-    if (result.ok) {
+
+    if (yunBackend === 'openrouter') {
+      const key = document.getElementById('openRouterKeyInput').value
+      if (!key) {
+        setYunDot('hidden')
+        yunReplyEl.textContent = ''
+        return
+      }
       setYunDot('connected')
       yunReplyEl.textContent = ''
     } else {
-      setYunDot('error')
-      yunReplyEl.textContent = '芸暫時離開了'
-      yunReplyEl.classList.add('error')
-      yunBubbleTextEl.textContent = '找不到 Claude CLI — 請確認已安裝'
+      const projectDir = document.getElementById('projectDirInput').value
+      if (!projectDir) { setYunDot('hidden'); yunReplyEl.textContent = ''; return }
+      const result = await window.electron.yun.checkCli()
+      if (result.ok) {
+        setYunDot('connected')
+        yunReplyEl.textContent = ''
+      } else {
+        setYunDot('error')
+        yunReplyEl.textContent = '芸暫時離開了'
+        yunReplyEl.classList.add('error')
+        yunBubbleTextEl.textContent = '找不到 Claude CLI — 請確認已安裝'
+      }
     }
   }
 
@@ -807,8 +886,12 @@
 
   // Schedule Yun check — called whenever editor content changes
   function scheduleYun () {
-    const config_projectDir = document.getElementById('projectDirInput').value
-    if (!config_projectDir) return  // not configured, do nothing
+    // Check if any backend is configured
+    if (yunBackend === 'cli') {
+      if (!document.getElementById('projectDirInput').value) return
+    } else {
+      if (!document.getElementById('openRouterKeyInput').value) return
+    }
 
     if (yunDebounceTimer) clearTimeout(yunDebounceTimer)
     yunDebounceTimer = setTimeout(() => {
@@ -821,24 +904,29 @@
   }
 
   async function triggerYun () {
-    const projectDir = document.getElementById('projectDirInput').value
-    if (!projectDir) return
-
     const body = Editor.getBody()
-    // Get last 100 characters
     const last100 = body.slice(-100)
     if (!last100.trim()) return
-    if (last100 === yunLastSentText) return  // no change
+    if (last100 === yunLastSentText) return
     yunLastSentText = last100
 
-    // Get note title
     const title = document.getElementById('noteTitle').textContent || '無題'
 
-    // Read soul.md
+    // Read soul.md — from project dir (CLI) or explicit file (OpenRouter)
     let soulContent = ''
     try {
-      const result = await window.electron.yun.readSoul(projectDir)
-      if (result.ok) soulContent = result.content
+      if (yunBackend === 'cli') {
+        const projectDir = document.getElementById('projectDirInput').value
+        if (!projectDir) return
+        const result = await window.electron.yun.readSoul(projectDir)
+        if (result.ok) soulContent = result.content
+      } else {
+        const soulPath = document.getElementById('openRouterSoulPath').value
+        if (soulPath) {
+          const result = await window.electron.fs.readFile(soulPath)
+          if (result.ok) soulContent = result.content
+        }
+      }
     } catch {}
 
     // Build prompt
@@ -867,7 +955,7 @@ ${historyText}
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
 
-    // Safety timeout: reset streaming flag if yun:done is never received (60s)
+    // Safety timeout
     if (yunStreamingTimeout) clearTimeout(yunStreamingTimeout)
     yunStreamingTimeout = setTimeout(() => {
       if (yunIsStreaming) {
@@ -881,8 +969,15 @@ ${historyText}
       }
     }, 60000)
 
-    // Call main process
-    window.electron.yun.ask(prompt, projectDir)
+    // Call appropriate backend
+    if (yunBackend === 'openrouter') {
+      const apiKey = document.getElementById('openRouterKeyInput').value
+      const model = document.getElementById('openRouterModelSelect').value
+      window.electron.yun.openrouter(apiKey, model, prompt)
+    } else {
+      const projectDir = document.getElementById('projectDirInput').value
+      window.electron.yun.ask(prompt, projectDir)
+    }
   }
 
   // ─── Initial columns setup ───────────────────────

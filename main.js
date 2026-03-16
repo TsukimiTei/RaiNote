@@ -350,6 +350,76 @@ ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
   })
 })
 
+// ─── OpenRouter API ──────────────────────────────────────────────
+
+ipcMain.handle('yun:openrouter', async (event, apiKey, model, prompt) => {
+  const https = require('https')
+
+  const body = JSON.stringify({
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 200,
+    stream: true
+  })
+
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: 'openrouter.ai',
+      path: '/api/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://rainote.netlify.app',
+        'X-Title': 'RaiNote'
+      }
+    }, (res) => {
+      let fullText = ''
+      let buffer = ''
+
+      res.on('data', (chunk) => {
+        buffer += chunk.toString()
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') continue
+          try {
+            const obj = JSON.parse(data)
+            const text = obj.choices?.[0]?.delta?.content || ''
+            if (text) {
+              fullText += text
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('yun:chunk', text)
+              }
+            }
+          } catch {}
+        }
+      })
+
+      res.on('end', () => {
+        const ok = res.statusCode === 200
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('yun:done', { ok, fullText, error: ok ? null : `HTTP ${res.statusCode}` })
+        }
+        resolve({ ok, fullText })
+      })
+    })
+
+    req.on('error', (err) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('yun:done', { ok: false, error: err.message })
+      }
+      resolve({ ok: false, error: err.message })
+    })
+
+    req.write(body)
+    req.end()
+  })
+})
+
 ipcMain.handle('apple:createNote', async (_, title, htmlBody) => {
   // Escape for AppleScript double-quoted string: backslashes first, then quotes
   const esc = (s) => s
