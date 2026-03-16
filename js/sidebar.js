@@ -85,8 +85,8 @@ const Sidebar = (() => {
     return Array.from(map.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([dateStr, groupFiles]) => {
-        // Within group: sort by filename
-        groupFiles.sort((a, b) => a.name.localeCompare(b.name))
+        // Within group: newest first (by mtime descending)
+        groupFiles.sort((a, b) => b.mtime - a.mtime)
 
         const [y, m, d] = dateStr.split('-').map(Number)
         const timestamp = new Date(y, m - 1, d).getTime()

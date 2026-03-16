@@ -12,6 +12,19 @@
   let currentNote    = null
   let isDoubleLayout = false
 
+  // ─── File system watcher (Finder / Obsidian changes) ──
+
+  let fsChangeTimer = null
+  window.electron.fs.onChanged(() => {
+    // Debounce: multiple events fire for a single operation
+    if (fsChangeTimer) clearTimeout(fsChangeTimer)
+    fsChangeTimer = setTimeout(() => Sidebar.refresh(), 500)
+  })
+
+  // Start watching the vault directory
+  const vaultDir = Storage.getVaultPath()
+  if (vaultDir) window.electron.fs.watch(vaultDir)
+
   // ─── Init sub-modules ───────────────────────────
 
   const editorPlaceholderEl = document.getElementById('editorPlaceholder')
@@ -534,6 +547,7 @@
     if (!dir) return
     await Storage.setVaultPath(dir)
     document.getElementById('vaultPathInput').value = dir
+    await window.electron.fs.watch(dir)  // Switch watcher to new vault
     await Sidebar.refresh()
   })
 
@@ -544,6 +558,7 @@
     const config = await window.electron.config.read()
     config.projectDir = dir
     await window.electron.config.write(config)
+    checkYunConnection()
   })
 
   async function openSettings () {
@@ -675,8 +690,28 @@
   const yunDotEl = document.getElementById('yunDot')
 
   function setYunDot (state) {
-    // state: 'hidden' | 'connected' | 'streaming' | 'error'
+    // state: 'hidden' | 'pending' | 'connected' | 'streaming' | 'error'
     yunDotEl.className = 'yun-dot' + (state !== 'hidden' ? ' ' + state : '')
+  }
+
+  // Check CLI availability and show dot immediately
+  async function checkYunConnection () {
+    const projectDir = document.getElementById('projectDirInput').value
+    if (!projectDir) { setYunDot('hidden'); yunReplyEl.textContent = ''; return }
+    // Show pending while checking
+    setYunDot('pending')
+    yunReplyEl.textContent = '芸正在趕來…'
+    yunReplyEl.classList.remove('error')
+    const result = await window.electron.yun.checkCli()
+    if (result.ok) {
+      setYunDot('connected')
+      yunReplyEl.textContent = ''
+    } else {
+      setYunDot('error')
+      yunReplyEl.textContent = '芸暫時離開了'
+      yunReplyEl.classList.add('error')
+      yunBubbleTextEl.textContent = '找不到 Claude CLI — 請確認已安裝'
+    }
   }
 
   let yunDebounceTimer = null
@@ -696,6 +731,7 @@
 
   // Listen for stream completion
   window.electron.yun.onDone((result) => {
+    console.log('[yun:done]', JSON.stringify(result).slice(0, 300))
     yunIsStreaming = false
     if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
     yunReplyEl.classList.remove('streaming')
@@ -822,6 +858,9 @@ ${historyText}
   setupEditorColumns()
   // 延迟一帧确保字体渲染完成后再读 computed line-height
   requestAnimationFrame(updateColLineStepEditor)
+
+  // ─── Check Yun CLI connection ───────────────────
+  checkYunConnection()
 
   // ─── Initial note load ───────────────────────────
 

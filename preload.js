@@ -7,7 +7,10 @@ contextBridge.exposeInMainWorld('electron', {
     listFiles:  (dir)               => ipcRenderer.invoke('fs:listFiles', dir),
     deleteFile: (path)              => ipcRenderer.invoke('fs:deleteFile', path),
     exists:     (path)              => ipcRenderer.invoke('fs:exists', path),
-    renameFile: (oldPath, newPath)  => ipcRenderer.invoke('fs:renameFile', oldPath, newPath)
+    renameFile: (oldPath, newPath)  => ipcRenderer.invoke('fs:renameFile', oldPath, newPath),
+    watch:      (dir)              => ipcRenderer.invoke('fs:watch', dir),
+    unwatch:    ()                 => ipcRenderer.invoke('fs:unwatch'),
+    onChanged:  (cb)               => ipcRenderer.on('fs:changed', (_, data) => cb(data))
   },
   dialog: {
     openDirectory: ()        => ipcRenderer.invoke('dialog:openDirectory'),
@@ -27,6 +30,7 @@ contextBridge.exposeInMainWorld('electron', {
     showInFinder: (path) => ipcRenderer.invoke('shell:showInFinder', path)
   },
   yun: {
+    checkCli: () => ipcRenderer.invoke('yun:checkCli'),
     readSoul: (dir) => ipcRenderer.invoke('yun:readSoul', dir),
     ask: (prompt, cwd) => ipcRenderer.invoke('yun:ask', prompt, cwd),
     onChunk: (cb) => ipcRenderer.on('yun:chunk', (_, text) => cb(text)),

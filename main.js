@@ -118,6 +118,40 @@ ipcMain.handle('fs:renameFile', async (_, oldPath, newPath) => {
   }
 })
 
+// ─── File System Watcher ─────────────────────────────────────────
+// Watches the vault directory for external changes (Finder, Obsidian, etc.)
+// and notifies the renderer to refresh the sidebar.
+
+let fsWatcher = null
+
+ipcMain.handle('fs:watch', async (_, dirPath) => {
+  if (fsWatcher) { fsWatcher.close(); fsWatcher = null }
+  if (!dirPath || !fs.existsSync(dirPath)) return { ok: false }
+
+  try {
+    fsWatcher = fs.watch(dirPath, { persistent: false }, (eventType, filename) => {
+      if (filename && filename.endsWith('.md')) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('fs:changed', { eventType, filename })
+        }
+      }
+    })
+
+    fsWatcher.on('error', () => {
+      if (fsWatcher) { fsWatcher.close(); fsWatcher = null }
+    })
+
+    return { ok: true }
+  } catch {
+    return { ok: false }
+  }
+})
+
+ipcMain.handle('fs:unwatch', async () => {
+  if (fsWatcher) { fsWatcher.close(); fsWatcher = null }
+  return { ok: true }
+})
+
 // ─── Dialogs ──────────────────────────────────────────────────────
 
 ipcMain.handle('dialog:openDirectory', async () => {
@@ -163,8 +197,11 @@ ipcMain.handle('config:write', async (_, config) => {
 ipcMain.handle('app:getDataPath', () => app.getPath('userData'))
 
 ipcMain.handle('shell:showInFinder', async (_, filePath) => {
-  console.log('[shell:showInFinder]', filePath, 'exists:', fs.existsSync(filePath))
-  shell.showItemInFolder(filePath)
+  // Use macOS native `open -R` which reliably reveals files in Finder,
+  // even for paths with special characters that shell.showItemInFolder may struggle with
+  execFile('open', ['-R', filePath], (err) => {
+    if (err) console.error('[showInFinder] failed:', err.message)
+  })
 })
 
 // ─── Apple Notes Export ───────────────────────────────────────────
@@ -181,30 +218,43 @@ let resolvedClaudeBin = null
 async function findClaudeBin () {
   if (resolvedClaudeBin) return resolvedClaudeBin
 
-  const shell = process.env.SHELL || '/bin/zsh'
+  // 1. Try common known locations first (fastest, no shell spawn)
+  const home = process.env.HOME || ''
+  const candidates = [
+    home + '/.local/bin/claude',
+    '/usr/local/bin/claude',
+    '/opt/homebrew/bin/claude'
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      resolvedClaudeBin = p
+      console.log('[yun] Found claude CLI at:', p)
+      return p
+    }
+  }
+
+  // 2. Fallback: ask login shell
+  const userShell = process.env.SHELL || '/bin/zsh'
   return new Promise((resolve) => {
-    // Run `which claude` inside a login shell so PATH is fully populated
-    execFile(shell, ['-lc', 'which claude'], { timeout: 5000 }, (err, stdout) => {
+    execFile(userShell, ['-lc', 'which claude'], { timeout: 5000 }, (err, stdout) => {
       const bin = (stdout || '').trim()
       if (!err && bin && fs.existsSync(bin)) {
         resolvedClaudeBin = bin
-        console.log('[yun] Resolved claude CLI:', bin)
+        console.log('[yun] Resolved claude CLI via shell:', bin)
         resolve(bin)
       } else {
-        // Fallback: try common locations
-        const candidates = [
-          (process.env.HOME || '') + '/.local/bin/claude',
-          '/usr/local/bin/claude',
-          '/opt/homebrew/bin/claude'
-        ]
-        for (const p of candidates) {
-          if (fs.existsSync(p)) { resolvedClaudeBin = p; resolve(p); return }
-        }
+        console.log('[yun] claude CLI not found. err:', err?.message, 'stdout:', stdout)
         resolve(null)
       }
     })
   })
 }
+
+// Check if claude CLI is available
+ipcMain.handle('yun:checkCli', async () => {
+  const bin = await findClaudeBin()
+  return { ok: !!bin, path: bin || null }
+})
 
 // Read soul.md from a directory
 ipcMain.handle('yun:readSoul', async (_, dirPath) => {
@@ -229,60 +279,36 @@ ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
     yunProcess = null
   }
 
+  const claudeBin = await findClaudeBin()
+  if (!claudeBin) {
+    const err = { ok: false, error: '找不到 claude CLI — 請確認已安裝 Claude Code' }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('yun:done', err)
+    }
+    return err
+  }
+
   return new Promise((resolve) => {
     try {
-      const claudeBin = await findClaudeBin()
-      if (!claudeBin) {
-        resolve({ ok: false, error: '找不到 claude CLI — 請確認已安裝 Claude Code (npm i -g @anthropic-ai/claude-code)' })
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('yun:done', { ok: false, error: '找不到 claude CLI' })
-        }
-        return
-      }
-
-      const proc = spawn(claudeBin, ['-p', prompt, '--output-format', 'stream-json', '--max-turns', '1'], {
+      // Pass prompt via stdin pipe (not CLI arg) to avoid arg-length limits
+      // and ensure stdin closes so claude doesn't hang waiting for more input
+      const proc = spawn(claudeBin, ['-p', '--output-format', 'text', '--max-turns', '1'], {
         cwd,
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe']
       })
       yunProcess = proc
+      proc.stdin.write(prompt)
+      proc.stdin.end()
 
       let fullText = ''
-      let buffer = ''
 
       proc.stdout.on('data', (chunk) => {
-        buffer += chunk.toString()
-        const lines = buffer.split('\n')
-        buffer = lines.pop() // keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const obj = JSON.parse(line)
-            // stream-json format: look for text content
-            let text = ''
-            if (obj.type === 'content_block_delta' && obj.delta?.text) {
-              text = obj.delta.text
-            } else if (obj.type === 'assistant' && typeof obj.content === 'string') {
-              text = obj.content
-            } else if (obj.result) {
-              text = typeof obj.result === 'string' ? obj.result : ''
-            }
-            if (text) {
-              fullText += text
-              // Send chunk to renderer
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('yun:chunk', text)
-              }
-            }
-          } catch {
-            // Not JSON, might be raw text
-            if (line.trim()) {
-              fullText += line
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('yun:chunk', line)
-              }
-            }
+        const text = chunk.toString()
+        if (text) {
+          fullText += text
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('yun:chunk', text)
           }
         }
       })
@@ -293,13 +319,6 @@ ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
 
       proc.on('close', (code) => {
         yunProcess = null
-        // Flush any remaining buffered data
-        if (buffer.trim()) {
-          fullText += buffer.trim()
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('yun:chunk', buffer.trim())
-          }
-        }
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('yun:done', { ok: code === 0, fullText })
         }

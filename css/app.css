@@ -730,6 +730,7 @@ input[type="range"].style-slider:disabled {
   transition: background 0.3s;
   display: none;
 }
+.yun-dot.pending   { display: block; background: #d4a843; }
 .yun-dot.connected { display: block; background: #5a9e6f; }
 .yun-dot.streaming { display: block; background: #5a9e6f; animation: yunPulse 1s ease-in-out infinite; }
 .yun-dot.error     { display: block; background: #c0392b; }
