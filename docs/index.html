@@ -67,7 +67,7 @@
       text-decoration: none;
     }
 
-    .nav-links { display: flex; gap: 32px; }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
     .nav-links a {
       font-size: 13px;
       color: var(--ink-muted);
@@ -419,6 +419,14 @@
     .footer-links a:hover { color: var(--accent); }
     .footer-copy { font-size: 11px; color: var(--ink-muted); letter-spacing: 0.05em; }
 
+    /* ── Raindrop animation ── */
+    .rain-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
     /* ── Responsive ── */
     @media (max-width: 600px) {
       nav { padding: 0 20px; }
@@ -600,6 +608,85 @@
   </div>
   <p class="footer-copy">© 2026 RaiNote · MIT License · 以愛製作</p>
 </footer>
+
+<!-- Rain canvas -->
+<canvas class="rain-canvas" id="rainCanvas"></canvas>
+
+<script>
+  // ── Raindrop animation ──
+  (() => {
+    const canvas = document.getElementById('rainCanvas')
+    const ctx = canvas.getContext('2d')
+    let W, H, drops = [], ripples = []
+
+    function resize () {
+      W = canvas.width = window.innerWidth
+      H = canvas.height = window.innerHeight
+    }
+    window.addEventListener('resize', resize)
+    resize()
+
+    class Drop {
+      constructor () { this.reset(true) }
+      reset (init) {
+        this.x = Math.random() * W
+        this.y = init ? Math.random() * -H : -10 - Math.random() * 60
+        this.len = 12 + Math.random() * 18
+        this.speed = 3 + Math.random() * 4
+        this.opacity = 0.06 + Math.random() * 0.08
+        this.width = 0.6 + Math.random() * 0.6
+      }
+      update () {
+        this.y += this.speed
+        if (this.y > H) {
+          ripples.push(new Ripple(this.x, H - 20 + Math.random() * 20))
+          this.reset(false)
+        }
+      }
+      draw () {
+        ctx.beginPath()
+        ctx.moveTo(this.x, this.y)
+        ctx.lineTo(this.x, this.y + this.len)
+        ctx.strokeStyle = `rgba(140, 120, 90, ${this.opacity})`
+        ctx.lineWidth = this.width
+        ctx.stroke()
+      }
+    }
+
+    class Ripple {
+      constructor (x, y) {
+        this.x = x; this.y = y
+        this.r = 1; this.maxR = 8 + Math.random() * 10
+        this.opacity = 0.12
+      }
+      update () {
+        this.r += 0.4
+        this.opacity *= 0.96
+      }
+      draw () {
+        if (this.opacity < 0.005) return
+        ctx.beginPath()
+        ctx.ellipse(this.x, this.y, this.r, this.r * 0.35, 0, 0, Math.PI * 2)
+        ctx.strokeStyle = `rgba(140, 120, 90, ${this.opacity})`
+        ctx.lineWidth = 0.6
+        ctx.stroke()
+      }
+      get done () { return this.r > this.maxR || this.opacity < 0.005 }
+    }
+
+    // Sparse rain — about 35 drops
+    for (let i = 0; i < 35; i++) drops.push(new Drop())
+
+    function frame () {
+      ctx.clearRect(0, 0, W, H)
+      for (const d of drops) { d.update(); d.draw() }
+      for (const r of ripples) { r.update(); r.draw() }
+      ripples = ripples.filter(r => !r.done)
+      requestAnimationFrame(frame)
+    }
+    frame()
+  })()
+</script>
 
 <script>
   // 動態更新版本號（從 GitHub Releases API）
