@@ -266,7 +266,7 @@ const Reader = (() => {
   function setLayout (double) {
     isDouble = double
     book.className = 'reader-book ' + (double ? 'double-page' : 'single-page')
-    document.getElementById('layoutToggle').textContent = double ? '雙頁' : '單頁'
+    // Note: layoutToggle icon is managed by app.js applyLayout()
 
     // Re-paginate for new layout
     const rawBody = book.dataset.rawBody || ''

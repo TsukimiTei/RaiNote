@@ -19,6 +19,10 @@
       if (currentNote) currentNote.meta = meta
       updateCreateTime(meta.created)
       Sidebar.refresh()
+    },
+    onChange: () => {
+      // Follow cursor to its page, update indicator
+      requestAnimationFrame(followCursor)
     }
   })
 
@@ -45,12 +49,19 @@
       Editor.load(currentNote)
       Sidebar.setActive(filePath)
 
-      // Set title input
+      // Set title in vertical title column
       const filename = filePath.split('/').pop()
       const displayTitle = Storage.extractDisplayTitle(filename)
-      document.getElementById('noteTitle').value = displayTitle
+      const titleEl = document.getElementById('noteTitle')
+      titleEl.textContent = displayTitle
 
       updateCreateTime(currentNote.meta?.created)
+
+      // Reset to page 1 and set up CSS columns after content loads
+      requestAnimationFrame(() => {
+        editorPage = 0
+        setupEditorColumns()
+      })
 
       if (currentMode === 'read') {
         Reader.setLayout(isDoubleLayout)
@@ -70,25 +81,32 @@
     document.getElementById('createTimeLabel').textContent = `创建于 ${label}`
   }
 
-  // ─── Note title input ────────────────────────────
-  // Independent input above the editor. On blur/Enter → rename file.
+  // ─── Note title (contenteditable vertical column) ──
+  // On blur/Enter → rename file.
 
-  const titleInput = document.getElementById('noteTitle')
+  const titleEl = document.getElementById('noteTitle')
 
-  titleInput.addEventListener('keydown', (e) => {
+  titleEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      titleInput.blur()
+      titleEl.blur()
     }
   })
 
-  titleInput.addEventListener('blur', async () => {
+  // Prevent multi-line paste — only keep first line
+  titleEl.addEventListener('paste', (e) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text/plain').split('\n')[0]
+    document.execCommand('insertText', false, text)
+  })
+
+  titleEl.addEventListener('blur', async () => {
     if (!currentNote) return
-    const newTitle = titleInput.value.trim()
+    const newTitle = titleEl.textContent.trim()
     if (!newTitle) {
       // Restore previous title
       const filename = currentNote.path.split('/').pop()
-      titleInput.value = Storage.extractDisplayTitle(filename)
+      titleEl.textContent = Storage.extractDisplayTitle(filename)
       return
     }
 
@@ -97,7 +115,6 @@
       const { path: newPath, changed } = await Storage.renameNote(currentNote.path, newTitle)
 
       if (changed) {
-        // Update the note's path and frontmatter title
         currentNote.path = newPath
         currentNote.meta = await Storage.saveNote(newPath, Editor.getBody(), {
           title: newTitle
@@ -110,6 +127,133 @@
       showToast('重命名失败', 'error')
     }
   })
+
+  // ─── Editor pagination (iBooks-style CSS columns + translateX) ──
+  //
+  // Geometry (writing-mode: vertical-rl):
+  //   • editor is position:absolute; right:0 → first column anchors to right
+  //   • CSS column-width (set by setupEditorColumns) splits content into pages
+  //   • column 1 = rightmost = document start
+  //   • translateX(+n * pageW) shifts editor right, revealing column n+1
+  //
+  // Math verification:
+  //   translateX(0)    → sees [containerLeft … containerRight]  = column 1 ✓
+  //   translateX(+pageW) → column 1 moves off-screen right, column 2 enters ✓
+
+  const editorScrollEl = document.querySelector('.editor-scroll')
+  const editNavNextBtn = document.getElementById('editNavNext')
+  const editNavPrevBtn = document.getElementById('editNavPrev')
+  const editPageNumEl  = document.getElementById('editPageNum')
+  const editPageTotEl  = document.getElementById('editPageTot')
+
+  let editorPage = 0
+
+  // Gap (px) between page columns — creates visible separation during page turns
+  const COLUMN_GAP = 100
+
+  // Set CSS column-width on the editor element based on current layout
+  function setupEditorColumns () {
+    const editorEl = document.getElementById('editor')
+    const scrollEl = editorScrollEl
+    const h  = scrollEl.clientHeight
+    const w  = scrollEl.clientWidth
+    if (!w || !h) return
+
+    // Single page: one column = full width, with COLUMN_GAP between pages
+    // Double page: two columns visible (each = half width), no gap needed (spine line handles it)
+    const colW = isDoubleLayout ? Math.floor(w / 2) : w
+    const gap  = isDoubleLayout ? 0 : COLUMN_GAP
+
+    editorEl.style.height             = h + 'px'
+    editorEl.style.columnWidth        = colW + 'px'
+    editorEl.style.webkitColumnWidth  = colW + 'px'
+    editorEl.style.columnGap          = gap + 'px'
+    editorEl.style.webkitColumnGap    = gap + 'px'
+
+    // Clamp current page after re-layout
+    setEditorPage(editorPage, false)
+  }
+
+  // Stride: distance between page positions (column width + gap between them)
+  function getEditorStride () {
+    const w = editorScrollEl.clientWidth
+    return isDoubleLayout ? w : w + COLUMN_GAP
+  }
+
+  // Total pages (spreads): (editor total width + gap) ÷ stride
+  function getEditorTotalPages () {
+    const editorEl = document.getElementById('editor')
+    const stride = getEditorStride()
+    if (!stride) return 1
+    const gap = isDoubleLayout ? 0 : COLUMN_GAP
+    return Math.max(1, Math.ceil((editorEl.offsetWidth + gap) / stride))
+  }
+
+  // Navigate to page n (0-indexed). animate=false for instant jump (cursor following)
+  function setEditorPage (n, animate = true) {
+    const total    = getEditorTotalPages()
+    editorPage     = Math.max(0, Math.min(n, total - 1))
+    const stride   = getEditorStride()
+    const editorEl = document.getElementById('editor')
+
+    editorEl.style.transition = animate
+      ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+      : 'none'
+    editorEl.style.transform = `translateX(${editorPage * stride}px)`
+
+    updateEditNav()
+  }
+
+  function updateEditNav () {
+    const total = getEditorTotalPages()
+    editPageNumEl.textContent  = editorPage + 1
+    editPageTotEl.textContent  = total
+    editNavPrevBtn.disabled    = editorPage <= 0
+    editNavNextBtn.disabled    = editorPage >= total - 1
+  }
+
+  // When user types, follow cursor to its page (no animation)
+  function followCursor () {
+    const sel = window.getSelection()
+    if (!sel || !sel.rangeCount) { updateEditNav(); return }
+    const cursorRect    = sel.getRangeAt(0).getBoundingClientRect()
+    if (!cursorRect.width && !cursorRect.height) { updateEditNav(); return }
+
+    const containerRect = editorScrollEl.getBoundingClientRect()
+    // Is cursor already in the visible viewport?
+    if (cursorRect.left >= containerRect.left && cursorRect.right <= containerRect.right + 4) {
+      updateEditNav()
+      return
+    }
+
+    // Cursor distance from editor's right edge (getBoundingClientRect includes current transform)
+    const editorRight  = document.getElementById('editor').getBoundingClientRect().right
+    const distFromRight = editorRight - cursorRect.left
+    const stride = getEditorStride()
+    const targetPage   = Math.max(0, Math.floor(distFromRight / stride))
+    setEditorPage(targetPage, false)
+  }
+
+  editNavNextBtn.addEventListener('click', () => setEditorPage(editorPage + 1, true))
+  editNavPrevBtn.addEventListener('click', () => setEditorPage(editorPage - 1, true))
+
+  // 用 JS mouseenter/mouseleave 控制按钮显隐（CSS :hover 在含 contain/isolation 的子树内不可靠）
+  const editorAreaEl = document.getElementById('editorArea')
+  editorAreaEl.addEventListener('mouseenter', () => editorAreaEl.classList.add('nav-visible'))
+  editorAreaEl.addEventListener('mouseleave', () => editorAreaEl.classList.remove('nav-visible'))
+
+  // Keyboard navigation (when not typing in editor/title)
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('editorArea').classList.contains('hidden')) return
+    const active = document.activeElement
+    if (active === document.getElementById('editor')) return
+    if (active === document.getElementById('noteTitle')) return
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); setEditorPage(editorPage + 1, true) }
+    if (e.key === 'ArrowRight') { e.preventDefault(); setEditorPage(editorPage - 1, true) }
+  })
+
+  // Recalculate columns on resize (sidebar close is handled by handleResize below)
+  window.addEventListener('resize', setupEditorColumns)
 
   // ─── Mode switching ──────────────────────────────
 
@@ -144,11 +288,28 @@
 
   // ─── Single / Double page toggle ─────────────────
 
+  const singlePageSVG = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="4" y="2" width="8" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
+  </svg>`
+
+  const doublePageSVG = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="1" y="2" width="6" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
+    <rect x="9" y="2" width="6" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
+  </svg>`
+
   function applyLayout (double) {
     isDoubleLayout = double
-    document.getElementById('layoutToggle').textContent = double ? '雙頁' : '單頁'
+    const btn = document.getElementById('layoutToggle')
+    btn.innerHTML = double ? doublePageSVG : singlePageSVG
+    btn.classList.toggle('active', double)
     document.getElementById('editorArea').dataset.layout = double ? 'double' : 'single'
-    if (currentMode === 'read') Reader.setLayout(double)
+    if (currentMode === 'read') {
+      Reader.setLayout(double)
+    } else {
+      // Re-calculate column width for new layout
+      editorPage = 0
+      setupEditorColumns()
+    }
   }
 
   document.getElementById('layoutToggle').addEventListener('click', () => {
@@ -195,11 +356,11 @@
     document.getElementById('dpWriteTime').textContent =
       fmtMinutes(Editor.getWriteMinutes())
 
-    // Position: below the detail button
+    // Position: to the right of the detail button in the vtoolbar
     const rect = detailBtn.getBoundingClientRect()
-    detailPopover.style.right  = `${window.innerWidth - rect.right}px`
-    detailPopover.style.top    = `${rect.bottom + 8}px`
-    detailPopover.style.left   = 'auto'
+    detailPopover.style.left  = `${rect.right + 8}px`
+    detailPopover.style.top   = `${rect.top}px`
+    detailPopover.style.right = 'auto'
 
     detailPopover.classList.remove('hidden')
     detailOpen = true
@@ -216,25 +377,63 @@
     }
   })
 
-  // ─── Export (in Detail popover) ──────────────────
+  // ─── Export to Apple Notes ───────────────────────
+  //
+  // Converts Markdown body to HTML for Apple Notes:
+  //   • 去除标题标记、图片、链接标记、斜体、标注语法
+  //   • 保留加粗（** ** → <b>）和换行（\n → <br>）
+  //   • V1：每次都新建 Note，不更新已有 Note
 
-  document.getElementById('popoverExportBtn').addEventListener('click', async () => {
-    closeDetail()
+  function toAppleNotesHtml (rawBody) {
+    const lines = rawBody.split(/\r?\n/)
+    const parts = lines.map(line => {
+      // Strip annotation syntax → keep annotated text only
+      line = line.replace(/::annotate\[([^\]]+)\]\{[^}]+\}::/g, '$1')
+      // Strip heading markers
+      line = line.replace(/^#{1,6}\s+/, '')
+      // Strip image syntax (remove entirely)
+      line = line.replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+      // Strip link syntax → keep link text
+      line = line.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      // Bold + italic → bold (preserve bold, strip italic markers)
+      line = line.replace(/\*\*\*([^*]+)\*\*\*/g, '<b>$1</b>')
+      // Bold → <b>
+      line = line.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      // Italic → plain text
+      line = line.replace(/\*([^*]+)\*/g, '$1')
+      return line
+    })
+    return parts.join('<br>')
+  }
+
+  async function doExportToAppleNotes (btn) {
     if (!currentNote) return
 
-    const title    = currentNote.meta?.title || Storage.filenameToTitle(currentNote.path)
-    const body     = Editor.getBody()
-    const horizontal = body.replace(
-      /::annotate\[([^\]]+)\]\{images=\[([^\]]*)\]\}::/g,
-      (_, text, imgs) => {
-        const list = imgs.split(',').map(i => i.trim()).filter(Boolean)
-        return text + '\n\n' + list.map(img => `![](${img})`).join('\n')
-      }
-    )
+    const title   = currentNote.meta?.title ||
+                    Storage.extractDisplayTitle(currentNote.path.split('/').pop())
+    const htmlBody = toAppleNotesHtml(Editor.getBody())
 
-    const result = await window.electron.apple.createNote(title, horizontal)
-    if (result.ok) showToast('已导出到 Apple Notes ✓')
-    else showToast('导出失败: ' + result.error, 'error')
+    // Button loading state
+    if (btn) { btn.disabled = true; btn.classList.add('sending') }
+
+    try {
+      const result = await window.electron.apple.createNote(title, htmlBody)
+      if (result.ok) showToast('已发送到 Apple Notes ✓')
+      else           showToast(result.error, 'error')
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('sending') }
+    }
+  }
+
+  // Button in title column
+  document.getElementById('sendToNotesBtn').addEventListener('click', function () {
+    doExportToAppleNotes(this)
+  })
+
+  // Button in detail popover (existing, reuse new function)
+  document.getElementById('popoverExportBtn').addEventListener('click', async () => {
+    closeDetail()
+    await doExportToAppleNotes(null)
   })
 
   // ─── Annotation toolbar ──────────────────────────
@@ -345,6 +544,9 @@
   }
 
   await restoreConfig()
+
+  // ─── Initial columns setup ───────────────────────
+  setupEditorColumns()
 
   // ─── Initial note load ───────────────────────────
 

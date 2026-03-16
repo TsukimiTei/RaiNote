@@ -29,7 +29,7 @@
   --toolbar-h:    52px;   /* 略高，让内容远离红绿灯水平线 */
   --title-h:      56px;   /* 笔记标题区高度 */
   --statusbar-h:  28px;
-  --sidebar-w:   240px;
+  --sidebar-w:   160px;
 }
 
 /* ─── Reset ────────────────────────────────────────── */
@@ -55,78 +55,80 @@ body {
 .main-content {
   flex: 1;
   display: flex;
+  flex-direction: row;
+  min-width: 0;
+  height: 100vh;
+}
+
+/* ─── Vertical Toolbar ─────────────────────────────── */
+.vtoolbar {
+  width: 60px;
+  height: 100vh;
+  flex-shrink: 0;
+  background: var(--rice-paper);
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 8px;
+  -webkit-app-region: drag;
+  z-index: 10;
+}
+
+/* Traffic lights spacer — keeps buttons below macOS traffic lights */
+.vt-drag-spacer {
+  height: var(--toolbar-h);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.vt-sep {
+  width: 20px;
+  height: 1px;
+  background: var(--border-light);
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+
+.vt-spacer {
+  flex: 1;
+}
+
+.vt-btn {
+  -webkit-app-region: no-drag;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin: 2px 0;
+  flex-shrink: 0;
+}
+
+.vt-btn:hover {
+  background: var(--paper-shadow);
+  color: var(--ink);
+}
+
+.vt-btn.active {
+  color: var(--accent);
+  background: rgba(139, 96, 64, 0.1);
+}
+
+/* ─── Content Column ───────────────────────────────── */
+.content-col {
+  flex: 1;
+  display: flex;
   flex-direction: column;
   min-width: 0;
   height: 100vh;
-  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ─── Toolbar ──────────────────────────────────────── */
-.toolbar {
-  height: var(--toolbar-h);
-  min-height: var(--toolbar-h);
-  background: var(--rice-paper);
-  border-bottom: 1px solid var(--border-light);
-  display: flex;
-  align-items: flex-end;          /* 贴底排列，让内容低于红绿灯中心线 */
-  padding: 0 16px 8px 80px;       /* 底部8px，与底边保持距离 */
-  gap: 12px;
-  -webkit-app-region: drag;
-}
-
-.toolbar-left,
-.toolbar-center,
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  -webkit-app-region: no-drag;
-}
-
-.toolbar-left  { flex: 1; }
-.toolbar-center { flex: 0 0 auto; }
-.toolbar-right { flex: 1; justify-content: flex-end; gap: 10px; }
-
-.doc-title {
-  font-family: var(--font-main);
-  font-size: 15px;
-  color: var(--ink-2);
-  letter-spacing: 0.05em;
-  max-width: 240px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Mode switcher */
-.mode-switcher {
-  display: flex;
-  background: var(--paper-shadow);
-  border-radius: 6px;
-  padding: 2px;
-  border: 1px solid var(--border-light);
-}
-
-.mode-btn {
-  background: none;
-  border: none;
-  padding: 4px 14px;
-  border-radius: 4px;
-  font-family: var(--font-main);
-  font-size: 13px;
-  color: var(--ink-muted);
-  cursor: pointer;
-  transition: all 0.18s;
-}
-
-.mode-btn.active {
-  background: var(--paper-light);
-  color: var(--ink);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-}
-
-.mode-btn:hover:not(.active) {
-  color: var(--ink-2);
 }
 
 /* ─── Buttons ──────────────────────────────────────── */
@@ -190,7 +192,6 @@ body {
   width: var(--sidebar-w);
   height: 100vh;
   background: var(--rice-paper);
-  border-right: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -465,19 +466,20 @@ body {
   box-shadow:
     0 4px 20px rgba(60, 30, 0, 0.14),
     0 1px 4px rgba(60, 30, 0, 0.08);
-  /* Arrow indicator pointing up */
+  /* Arrow indicator pointing left toward vtoolbar */
 }
 
 .detail-popover::before {
   content: '';
   position: absolute;
-  top: -6px;
-  right: 14px;
+  top: 14px;
+  left: -6px;
+  right: auto;
   width: 10px;
   height: 10px;
   background: var(--paper-light);
   border-left: 1px solid var(--border);
-  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   transform: rotate(45deg);
 }
 

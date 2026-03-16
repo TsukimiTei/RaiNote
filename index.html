@@ -20,111 +20,166 @@
     <input id="searchInput" class="search-input" type="text" placeholder="搜索笔记…">
   </div>
   <ul id="fileList" class="file-list"></ul>
-  <div class="sidebar-footer">
-    <button id="settingsBtn" class="btn-icon" title="设置">
+</aside>
+
+<!-- ─── Main Content ─────────────────────────────────── -->
+<main id="mainContent" class="main-content">
+
+  <!-- ─── Vertical Toolbar ─────────────────────────── -->
+  <nav class="vtoolbar">
+    <!-- Traffic lights drag spacer -->
+    <div class="vt-drag-spacer"></div>
+
+    <!-- Sidebar toggle -->
+    <button id="sidebarToggle" class="vt-btn" title="文件列表">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <div class="vt-sep"></div>
+
+    <!-- Edit mode (pencil) -->
+    <button id="editModeBtn" class="vt-btn active" title="編輯">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M11 2.5L13.5 5L6 12.5L2.5 13.5L3.5 10L11 2.5Z"
+              stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M9.5 4L12 6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- Read mode (open book) -->
+    <button id="readModeBtn" class="vt-btn" title="閱讀">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 13C6.5 11.5 3.5 11.5 2 12V4C3.5 3 6.5 3 8 4.5"
+              stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M8 13C9.5 11.5 12.5 11.5 14 12V4C12.5 3 9.5 3 8 4.5"
+              stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M8 4.5V13" stroke="currentColor" stroke-width="1.3"/>
+      </svg>
+    </button>
+
+    <div class="vt-sep"></div>
+
+    <!-- Layout toggle (icon swapped by applyLayout()) -->
+    <button id="layoutToggle" class="vt-btn" title="切換單/雙頁">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="4" y="2" width="8" height="12" rx="1"
+              stroke="currentColor" stroke-width="1.3"/>
+      </svg>
+    </button>
+
+    <!-- Detail info -->
+    <button id="detailBtn" class="vt-btn" title="文檔信息">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M8 7v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="8" cy="5" r="0.9" fill="currentColor"/>
+      </svg>
+    </button>
+
+    <!-- Spacer pushes settings to bottom -->
+    <div class="vt-spacer"></div>
+
+    <!-- Settings -->
+    <button id="settingsBtn" class="vt-btn" title="設置">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/>
         <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.54 11.54l1.41 1.41M3.05 12.95l1.42-1.41M11.54 4.46l1.41-1.41"
               stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
       </svg>
     </button>
-  </div>
-</aside>
+  </nav>
 
-<!-- ─── Main Content ─────────────────────────────────── -->
-<main id="mainContent" class="main-content">
+  <!-- ─── Content Column ────────────────────────────── -->
+  <div class="content-col">
 
-  <!--
-    精简后的工具栏：只保留模式切换 + 少量图标
-    减少红绿灯区域的视觉拥挤感
-  -->
-  <header class="toolbar">
-    <div class="toolbar-left">
-      <button id="sidebarToggle" class="btn-icon" title="文件列表">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
+    <!-- Editor Area -->
+    <section id="editorArea" class="editor-area" data-layout="single">
 
-    <div class="toolbar-center">
-      <div class="mode-switcher">
-        <button id="editModeBtn" class="mode-btn active" data-mode="edit">編輯</button>
-        <button id="readModeBtn" class="mode-btn" data-mode="read">閱讀</button>
+      <div class="editor-scroll">
+        <div class="page-frame">
+          <div id="editor"
+               class="editor"
+               contenteditable="true"
+               spellcheck="false"
+               data-placeholder="在此寫下今日所思…"></div>
+        </div>
       </div>
-    </div>
 
-    <div class="toolbar-right">
-      <button id="layoutToggle" class="btn-text" title="切換單/雙頁">單頁</button>
-      <!-- Detail icon：文档信息气泡 -->
-      <button id="detailBtn" class="btn-icon" title="文档信息">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
-          <path d="M8 7v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-          <circle cx="8" cy="5" r="0.9" fill="currentColor"/>
-        </svg>
-      </button>
-    </div>
-  </header>
-
-  <!-- Editor Area -->
-  <section id="editorArea" class="editor-area" data-layout="single">
-
-    <!-- 笔记标题（独立输入框，不属于正文） -->
-    <div class="note-title-wrap">
-      <input id="noteTitle"
-             type="text"
-             class="note-title"
-             placeholder="無題"
-             spellcheck="false">
-    </div>
-
-    <div class="editor-scroll">
-      <div class="page-frame">
-        <div id="editor"
-             class="editor"
-             contenteditable="true"
+      <!-- Note title column — rightmost, vertical, always visible -->
+      <div class="note-title-col">
+        <div id="noteTitle"
+             class="note-title-vert"
+             contenteditable="plaintext-only"
              spellcheck="false"
-             data-placeholder="在此寫下今日所思…"></div>
+             data-placeholder="無題"></div>
+
+        <!-- 一键发送到 Apple Notes -->
+        <button id="sendToNotesBtn" class="send-notes-btn" title="发送到 Apple Notes">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 9V2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M4 5l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M1 10v3h12v-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
-    </div>
-  </section>
 
-  <!-- Reader Area -->
-  <section id="readerArea" class="reader-area hidden">
-    <div class="reader-wrap">
-      <div id="readerBook" class="reader-book single-page">
-        <!-- Pages injected by reader.js -->
+      <!-- Editor page navigation -->
+      <button id="editNavPrev" class="page-nav edit-nav-prev" disabled title="上一頁">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button id="editNavNext" class="page-nav edit-nav-next" title="下一頁">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="edit-page-indicator">
+        <span id="editPageNum">1</span> / <span id="editPageTot">1</span>
       </div>
-    </div>
 
-    <button id="navNext" class="page-nav nav-next" title="下一頁">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </button>
-    <button id="navPrev" class="page-nav nav-prev" title="上一頁">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </button>
+    </section>
 
-    <div class="page-indicator">
-      <span id="pageNum">1</span> / <span id="pageTot">1</span>
-    </div>
+    <!-- Reader Area -->
+    <section id="readerArea" class="reader-area hidden">
+      <div class="reader-wrap">
+        <div id="readerBook" class="reader-book single-page">
+          <!-- Pages injected by reader.js -->
+        </div>
+      </div>
 
-    <div class="reader-settings">
-      <button class="font-preset active" data-size="18">小</button>
-      <button class="font-preset" data-size="22">中</button>
-      <button class="font-preset" data-size="28">大</button>
-    </div>
-  </section>
+      <button id="navNext" class="page-nav nav-next" title="下一頁">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button id="navPrev" class="page-nav nav-prev" title="上一頁">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
 
-  <!-- Status Bar -->
-  <footer class="status-bar">
-    <span id="saveStatus" class="save-status">已儲存</span>
-    <span id="createTimeLabel" class="create-time"></span>
-  </footer>
+      <div class="page-indicator">
+        <span id="pageNum">1</span> / <span id="pageTot">1</span>
+      </div>
+
+      <div class="reader-settings">
+        <button class="font-preset active" data-size="18">小</button>
+        <button class="font-preset" data-size="22">中</button>
+        <button class="font-preset" data-size="28">大</button>
+      </div>
+    </section>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <span id="saveStatus" class="save-status">已儲存</span>
+      <span id="createTimeLabel" class="create-time"></span>
+    </footer>
+
+  </div><!-- .content-col -->
+
 </main>
 
 <!-- ─── Detail Popover ────────────────────────────────── -->

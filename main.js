@@ -145,15 +145,19 @@ ipcMain.handle('config:write', async (_, config) => {
 ipcMain.handle('app:getDataPath', () => app.getPath('userData'))
 
 // ─── Apple Notes Export ───────────────────────────────────────────
+//
+// Renderer sends pre-converted HTML body (bold as <b>, line breaks as <br>).
+// This handler only escapes for AppleScript string injection and executes.
 
-ipcMain.handle('apple:createNote', async (_, title, body) => {
-  // Convert to plain text, remove annotation syntax
-  const plain = body
-    .replace(/::annotate\[([^\]]+)\]\{[^}]+\}::/g, '$1')
-    .replace(/[#*_]/g, '')
+ipcMain.handle('apple:createNote', async (_, title, htmlBody) => {
+  // Escape for AppleScript double-quoted string: backslashes first, then quotes
+  const esc = (s) => s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, '')   // HTML uses <br>; strip stray newlines from the string
 
-  const escapedTitle = title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-  const escapedBody = plain.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
+  const escapedTitle = esc(title)
+  const escapedBody  = esc(htmlBody)
 
   const script = `
 tell application "Notes"
@@ -163,9 +167,22 @@ tell application "Notes"
 end tell`
 
   return new Promise((resolve) => {
-    execFile('osascript', ['-e', script], (err) => {
-      if (err) resolve({ ok: false, error: err.message })
-      else resolve({ ok: true })
+    execFile('osascript', ['-e', script], { timeout: 12000 }, (err, _stdout, stderr) => {
+      if (!err) { resolve({ ok: true }); return }
+
+      const msg = (err.message + ' ' + (stderr || '')).toLowerCase()
+
+      if (msg.includes('not authorized') || msg.includes('authorization') || msg.includes('not permitted')) {
+        resolve({ ok: false, error: '权限不足 — 请前往「系统设置 → 隐私与安全 → 自动化」，允许 RaiNote 控制 Notes' })
+      } else if (msg.includes('folder') || msg.includes('not found') || msg.includes('icloud')) {
+        resolve({ ok: false, error: '找不到 Notes 文件夹 — 请确认 iCloud Notes 已启用' })
+      } else if (err.killed || msg.includes('timeout')) {
+        resolve({ ok: false, error: '操作超时 — Notes 应用无响应，请重试' })
+      } else if (msg.includes('application can\'t be found') || msg.includes('no application')) {
+        resolve({ ok: false, error: '未找到 Notes 应用 — 请确认系统已安装 Apple Notes' })
+      } else {
+        resolve({ ok: false, error: `导出失败：${err.message}` })
+      }
     })
   })
 })

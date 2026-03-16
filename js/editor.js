@@ -26,6 +26,7 @@ const Editor = (() => {
     el.addEventListener('input', onInput)
     el.addEventListener('focus', onFocus)
     el.addEventListener('blur', onBlur)
+    el.addEventListener('keydown', onKeyDown)
     el.addEventListener('mouseup', onMouseUp)
     el.addEventListener('keyup', onMouseUp) // also track keyboard selection
     el.addEventListener('paste', onPaste)
@@ -137,6 +138,16 @@ const Editor = (() => {
     if (state === 'saving') el.textContent = '储存中…'
     else if (state === 'saved') el.textContent = '已储存'
     else if (state === 'error') el.textContent = '储存失败'
+  }
+
+  // ─── Keyboard shortcuts ───────────────────────────
+
+  function onKeyDown (e) {
+    // Tab → 首行缩进两个全角空格（等同于两个汉字宽度）
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      document.execCommand('insertText', false, '\u3000\u3000')
+    }
   }
 
   // ─── Paste handling (plain text only) ────────────

@@ -7,49 +7,95 @@
   flex: 1;
   overflow: hidden;
   display: flex;
-  flex-direction: column;   /* 标题在上，编辑区在下 */
+  flex-direction: row;      /* editor-scroll + note-title-col side by side */
   align-items: stretch;
   background: var(--rice-paper);
+  position: relative;       /* anchor for absolutely-positioned nav buttons */
 }
 
-/* ─── Note Title ───────────────────────────────────── */
-.note-title-wrap {
+/* ─── Note Title Column (vertical, rightmost) ──────── */
+.note-title-col {
   flex-shrink: 0;
+  width: 56px;
+  border-left: 1px solid var(--border-light);
   background: var(--paper-light);
-  border-bottom: 1px solid var(--border-light);
-  padding: 14px 52px 12px;  /* 与编辑器内边距对齐 */
+  display: flex;
+  flex-direction: column;   /* title fills top, button anchors to bottom */
+  align-items: center;
+  overflow: hidden;
 }
 
-.note-title {
-  display: block;
-  width: 100%;
-  background: none;
-  border: none;
-  outline: none;
+.note-title-vert {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
   font-family: var(--font-main);
-  font-size: 24px;
-  color: var(--ink);
-  letter-spacing: 0.06em;
+  font-size: 17px;
+  color: var(--ink-2);
+  letter-spacing: 0.2em;
+  text-align: center;       /* centers text in the vertical inline direction */
+  padding: 32px 18px;
+  width: 100%;
+  flex: 1;                  /* fill available height above the button */
+  outline: none;
+  cursor: text;
+  user-select: text;        /* override body's user-select: none */
+  white-space: pre-wrap;
+  overflow: hidden;
   caret-color: var(--accent);
 }
 
-.note-title::placeholder {
+/* ─── Send to Apple Notes button ───────────────────── */
+.send-notes-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 14px;
+  border-radius: 6px;
+  background: none;
+  border: none;
   color: var(--ink-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.send-notes-btn:hover {
+  background: var(--paper-shadow);
+  color: var(--accent);
+}
+
+.send-notes-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 发送中：旋转动画 */
+.send-notes-btn.sending svg {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.note-title-vert:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  pointer-events: none;
   font-style: italic;
 }
 
-.note-title:focus {
-  /* 轻微高亮 */
+.note-title-vert:focus {
   background: rgba(139, 96, 64, 0.02);
 }
 
 .editor-scroll {
   flex: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;         /* iBooks-style: clip, not scroll */
   display: flex;
   align-items: stretch;
-  /* 完全去掉左右 padding，让 page-frame 撑满 */
   padding: 0;
 }
 
@@ -57,7 +103,7 @@
 .page-frame {
   flex: 1;               /* 撑满可用宽度 */
   min-width: 0;
-  position: relative;    /* for double-page divider */
+  position: relative;    /* anchor for absolute editor + divider */
   background: var(--paper-light);
   border-top: none;
   border-bottom: none;
@@ -65,9 +111,7 @@
   border-right: 1px solid var(--border);
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.4);
-  min-height: calc(100vh - var(--toolbar-h) - var(--title-h) - var(--statusbar-h));
-  display: flex;
-  align-items: flex-start;  /* 内容从顶部开始 */
+  overflow: hidden;         /* clip columns outside viewport */
   /* 宣纸纹理 */
   background-image:
     repeating-linear-gradient(
@@ -99,14 +143,17 @@
 }
 
 /* ─── Vertical Editor Core ─────────────────────────── */
+/*
+ * iBooks / Kindle 分页方案：
+ *   - position: absolute; right: 0  → 锚定右侧，首列在右（= 文档开头）
+ *   - CSS column-width（由 JS 动态设置）→ 浏览器自动把内容分成等宽列
+ *   - column-fill: auto             → 按序填充列（不平衡）
+ *   - overflow: visible             → 列向左延伸，被 .page-frame overflow:hidden 裁切
+ *   - 翻页 = translateX(+n * pageW) → 向右移动，把左侧的列移入可见区
+ *
+ * 不加 direction: rtl —— 否则 inline 方向变为从下到上，导致文字从底部开始。
+ */
 .editor {
-  /*
-   * 竖排书写：writing-mode: vertical-rl
-   * 列从右到左，每列从上到下
-   * 注意：不加 direction: rtl，否则 inline 方向变为从下到上，
-   * 导致文字从底部开始，标点符号错位。
-   * vertical-rl 本身已保证列从右到左排列。
-   */
   writing-mode: vertical-rl;
   text-orientation: mixed;
 
@@ -117,14 +164,28 @@
   letter-spacing: 0.08em;
 
   padding: 48px 52px;
-  min-height: 100%;
-  width: 100%;
+
+  /* Pagination geometry */
+  position: absolute;
+  right: 0;          /* anchor: first column always on the right */
+  top: 0;
+  height: 100%;      /* fills page height; column-width set by JS */
+
+  /* column-width and -webkit-column-width injected by setupEditorColumns() */
+  -webkit-column-fill: auto;
+  column-fill: auto;
+  /* column-gap injected by setupEditorColumns() */
+
   outline: none;
   caret-color: var(--accent);
   cursor: text;
   white-space: pre-wrap;
   word-break: normal;
   overflow-wrap: break-word;
+
+  /* Smooth page turn */
+  transition: transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
 }
 
 /* 空编辑器占位文字 */
@@ -188,17 +249,55 @@ body.font-songti .editor {
   font-family: var(--font-songti);
 }
 
-/* ─── Scrollbar for horizontal scroll ─────────────── */
-.editor-scroll::-webkit-scrollbar {
-  height: 6px;
+/* Scrollbar hidden (overflow: hidden, no scrolling) */
+
+/* ─── Editor page navigation ───────────────────────── */
+/* Note: .page-nav base styles are in reader.css       */
+
+/* 竖排阅读方向：下一页（后文）在左侧，上一页（前文）在右侧 */
+.edit-nav-next {
+  left: 16px;
 }
-.editor-scroll::-webkit-scrollbar-track {
-  background: transparent;
+
+/* Offset right by note-title-col width (56px) + border (1px) + gap */
+.edit-nav-prev {
+  right: 73px;
 }
-.editor-scroll::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+
+/* 默认隐藏；由 JS 通过 .nav-visible 类控制显示 */
+.edit-nav-prev,
+.edit-nav-next {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, background 0.15s, color 0.15s, transform 0.15s;
 }
-.editor-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--ink-faint);
+
+.editor-area.nav-visible .edit-nav-prev,
+.editor-area.nav-visible .edit-nav-next {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.editor-area.nav-visible .edit-nav-prev:disabled,
+.editor-area.nav-visible .edit-nav-next:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.edit-page-indicator {
+  position: absolute;
+  bottom: 16px;
+  /* Center in scroll area (full width minus 56px title-col on right) */
+  left: calc(50% - 28px);
+  transform: translateX(-50%);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+  background: rgba(240, 235, 224, 0.85);
+  padding: 3px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  pointer-events: none;
+  user-select: none;
 }
