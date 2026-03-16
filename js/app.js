@@ -731,7 +731,6 @@
 
   // Listen for stream completion
   window.electron.yun.onDone((result) => {
-    console.log('[yun:done]', JSON.stringify(result).slice(0, 300))
     yunIsStreaming = false
     if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
     yunReplyEl.classList.remove('streaming')
