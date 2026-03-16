@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RaiNote — 竹簡遺風，指尖流韻</title>
+  <meta name="description" content="傳統竪排寫作工具，仿古書卷風格的 macOS 個人筆記應用。宣紙質感，墨色書寫，讓文字回歸本源。">
+  <meta property="og:title" content="RaiNote — 竹簡遺風，指尖流韻">
+  <meta property="og:description" content="傳統竪排寫作工具，仿古書卷風格的 macOS 個人筆記應用">
+  <meta property="og:image" content="og.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:        #1c1008;
+      --ink-2:      #3d2b18;
+      --ink-muted:  #7a6a58;
+      --paper:      #faf7f0;
+      --paper-warm: #f0ebe0;
+      --paper-deep: #e8e0d0;
+      --accent:     #8b6040;
+      --border:     #c8b898;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'STKaiti', 'KaiTi SC', 'BiauKai', 'KaiTi', Georgia, serif;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.8;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65 0.45' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.6 0.4 0 0 0.1 0.4 0.5 0.1 0 0.05 0 0.3 0.5 0 0 0.25 0.25 0.12 0 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23p)'/%3E%3C/svg%3E");
+      background-size: 300px 300px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 1;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      height: 56px;
+      background: rgba(250, 247, 240, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-brand {
+      font-size: 18px;
+      letter-spacing: 0.05em;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .nav-links { display: flex; gap: 32px; }
+    .nav-links a {
+      font-size: 13px;
+      color: var(--ink-muted);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--accent); }
+
+    .nav-dl {
+      background: var(--ink);
+      color: var(--paper) !important;
+      padding: 7px 18px;
+      border-radius: 20px;
+      font-size: 13px !important;
+      letter-spacing: 0.05em;
+      transition: background 0.2s !important;
+    }
+    .nav-dl:hover { background: var(--accent) !important; color: var(--paper) !important; }
+
+    /* ── Sections ── */
+    section { position: relative; z-index: 1; }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    .hero-title {
+      font-size: clamp(42px, 8vw, 88px);
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .hero-title-en {
+      font-size: clamp(14px, 2vw, 20px);
+      letter-spacing: 0.15em;
+      color: var(--ink-muted);
+      margin-bottom: 32px;
+    }
+
+    .hero-sub {
+      font-size: clamp(15px, 2.2vw, 18px);
+      color: var(--ink-muted);
+      max-width: 480px;
+      line-height: 2;
+      margin-bottom: 52px;
+    }
+
+    .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--ink);
+      color: var(--paper);
+      padding: 14px 32px;
+      border-radius: 32px;
+      text-decoration: none;
+      font-size: 15px;
+      letter-spacing: 0.05em;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { background: var(--accent); transform: translateY(-1px); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--ink-muted);
+      padding: 14px 28px;
+      border-radius: 32px;
+      border: 1px solid var(--border);
+      text-decoration: none;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    .hero-compat {
+      margin-top: 24px;
+      font-size: 11px;
+      color: var(--ink-muted);
+      letter-spacing: 0.06em;
+    }
+
+    /* ── App preview ── */
+    .preview-wrap {
+      margin-top: 72px;
+      width: 100%;
+      max-width: 860px;
+      position: relative;
+    }
+
+    .preview-shadow {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow:
+        0 2px 4px rgba(28,16,8,0.05),
+        0 8px 24px rgba(28,16,8,0.08),
+        0 32px 80px rgba(28,16,8,0.12);
+    }
+
+    .preview-bar {
+      background: var(--paper-deep);
+      height: 36px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+
+    .preview-body {
+      background: var(--paper);
+      min-height: 320px;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* fake sidebar */
+    .p-sidebar {
+      width: 140px;
+      background: var(--paper-warm);
+      border-right: 1px solid var(--border);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .p-file {
+      height: 32px;
+      border-radius: 6px;
+      background: var(--paper-deep);
+      opacity: 0.6;
+    }
+    .p-file.active {
+      background: rgba(139,96,64,0.12);
+      opacity: 1;
+    }
+
+    /* fake editor */
+    .p-editor {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: var(--paper);
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65 0.45' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.6 0.4 0 0 0.1 0.4 0.5 0.1 0 0.05 0 0.3 0.5 0 0 0.3 0.3 0.15 0 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23p)'/%3E%3C/svg%3E");
+      background-size: 300px 300px;
+    }
+
+    /* fake vertical text columns */
+    .p-col {
+      position: absolute;
+      top: 32px;
+      bottom: 32px;
+      width: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: center;
+    }
+    .p-char {
+      width: 18px;
+      height: 18px;
+      border-radius: 2px;
+      background: var(--ink);
+      opacity: 0.12;
+    }
+    .p-char.dark { opacity: 0.5; }
+    .p-char.med  { opacity: 0.3; }
+
+    /* fake title col */
+    .p-title {
+      width: 52px;
+      background: var(--paper-warm);
+      border-left: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 8px;
+      writing-mode: vertical-rl;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      color: var(--ink-muted);
+    }
+
+    /* ── Features ── */
+    .features {
+      padding: 120px 24px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: clamp(28px, 4vw, 42px);
+      color: var(--ink);
+      margin-bottom: 64px;
+      letter-spacing: 0.02em;
+    }
+
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 32px;
+    }
+
+    .feat-card {
+      background: var(--paper-warm);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 36px 28px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(28,16,8,0.08);
+    }
+
+    .feat-icon {
+      width: 44px; height: 44px;
+      background: rgba(139,96,64,0.1);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: var(--accent);
+      font-size: 22px;
+    }
+
+    .feat-title {
+      font-size: 17px;
+      color: var(--ink);
+      margin-bottom: 10px;
+      letter-spacing: 0.05em;
+    }
+
+    .feat-desc {
+      font-size: 13px;
+      color: var(--ink-muted);
+      line-height: 1.9;
+    }
+
+    /* ── Philosophy quote ── */
+    .quote-section {
+      padding: 100px 24px;
+      text-align: center;
+      background: var(--paper-warm);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .quote-text {
+      font-size: clamp(22px, 4vw, 36px);
+      color: var(--ink);
+      line-height: 1.7;
+      max-width: 600px;
+      margin: 0 auto 20px;
+      letter-spacing: 0.06em;
+    }
+
+    .quote-source {
+      font-size: 12px;
+      color: var(--ink-muted);
+      letter-spacing: 0.15em;
+    }
+
+    /* ── Download ── */
+    .download {
+      padding: 120px 24px;
+      text-align: center;
+    }
+
+    .dl-card {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--paper-warm);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 52px 64px;
+      max-width: 480px;
+      width: 100%;
+    }
+
+    .dl-icon {
+      width: 80px; height: 80px;
+      background: var(--paper-deep);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      font-size: 40px;
+      box-shadow: 0 4px 20px rgba(28,16,8,0.1);
+    }
+
+    .dl-name { font-size: 24px; color: var(--ink); margin-bottom: 8px; }
+    .dl-ver { font-size: 12px; color: var(--ink-muted); margin-bottom: 24px; letter-spacing: 0.08em; }
+    .dl-req { font-size: 11px; color: var(--ink-muted); margin-top: 16px; letter-spacing: 0.06em; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 48px 24px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-brand { font-size: 18px; color: var(--ink); margin-bottom: 12px; }
+    .footer-links { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; }
+    .footer-links a { font-size: 12px; color: var(--ink-muted); text-decoration: none; letter-spacing: 0.05em; }
+    .footer-links a:hover { color: var(--accent); }
+    .footer-copy { font-size: 11px; color: var(--ink-muted); letter-spacing: 0.05em; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      nav { padding: 0 20px; }
+      .nav-links { display: none; }
+      .features { padding: 80px 20px; }
+      .dl-card { padding: 40px 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a href="#" class="nav-brand">雨記</a>
+  <div class="nav-links">
+    <a href="#features">功能</a>
+    <a href="#download">下載</a>
+    <a href="https://github.com/TsukimiTei/RaiNote" target="_blank">GitHub</a>
+    <a href="#download" class="nav-dl">免費下載</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <p class="hero-eyebrow">macOS · 竪排寫作 · 仿古書卷</p>
+  <h1 class="hero-title">雨記</h1>
+  <p class="hero-title-en">RaiNote</p>
+  <p class="hero-sub">竹簡遺風，指尖流韻。<br>讓文字以傳統的姿態，落於宣紙之上。</p>
+  <div class="hero-actions">
+    <a href="#download" class="btn-primary">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 10V2M5 7l3 3 3-3M1 11v4h14v-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      下載 for Mac
+    </a>
+    <a href="https://github.com/TsukimiTei/RaiNote" target="_blank" class="btn-secondary">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      開源原始碼
+    </a>
+  </div>
+  <p class="hero-compat">macOS 13+ · Apple Silicon · 免費 · 無帳號</p>
+
+  <!-- App mockup -->
+  <div class="preview-wrap">
+    <div class="preview-shadow">
+      <div class="preview-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <div class="preview-body">
+        <!-- sidebar -->
+        <div class="p-sidebar">
+          <div class="p-file active"></div>
+          <div class="p-file"></div>
+          <div class="p-file"></div>
+          <div class="p-file"></div>
+        </div>
+        <!-- editor with vertical text columns (decorative) -->
+        <div class="p-editor">
+          <div class="p-col" style="right:72px">
+            <div class="p-char dark"></div><div class="p-char med"></div>
+            <div class="p-char dark"></div><div class="p-char med"></div>
+            <div class="p-char dark"></div><div class="p-char"></div>
+            <div class="p-char dark"></div><div class="p-char med"></div>
+            <div class="p-char dark"></div>
+          </div>
+          <div class="p-col" style="right:106px">
+            <div class="p-char med"></div><div class="p-char dark"></div>
+            <div class="p-char med"></div><div class="p-char dark"></div>
+            <div class="p-char"></div><div class="p-char dark"></div>
+            <div class="p-char med"></div><div class="p-char dark"></div>
+          </div>
+          <div class="p-col" style="right:140px">
+            <div class="p-char dark"></div><div class="p-char"></div>
+            <div class="p-char med"></div><div class="p-char dark"></div>
+            <div class="p-char dark"></div><div class="p-char med"></div>
+            <div class="p-char"></div><div class="p-char dark"></div>
+            <div class="p-char dark"></div>
+          </div>
+          <div class="p-col" style="right:174px">
+            <div class="p-char"></div><div class="p-char med"></div>
+            <div class="p-char dark"></div><div class="p-char"></div>
+            <div class="p-char med"></div><div class="p-char dark"></div>
+            <div class="p-char med"></div>
+          </div>
+          <div class="p-col" style="right:208px">
+            <div class="p-char dark"></div><div class="p-char med"></div>
+            <div class="p-char"></div><div class="p-char dark"></div>
+            <div class="p-char med"></div><div class="p-char dark"></div>
+            <div class="p-char dark"></div><div class="p-char"></div>
+          </div>
+        </div>
+        <!-- title col -->
+        <div class="p-title">春日隨筆</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Quote -->
+<section class="quote-section" id="features">
+  <p class="quote-text">「書者，散也。<br>欲書先散懷抱，任情恣性，然後書之。」</p>
+  <p class="quote-source">— 蔡邕《筆論》</p>
+</section>
+
+<!-- Features -->
+<section class="features">
+  <p class="section-label">核心功能</p>
+  <h2 class="section-title">專為漢字書寫而生</h2>
+  <div class="feat-grid">
+
+    <div class="feat-card">
+      <div class="feat-icon">⛩</div>
+      <h3 class="feat-title">傳統竪排排版</h3>
+      <p class="feat-desc">文字由右至左、由上而下排列，符合古籍書卷的閱讀習慣。楷體、宋體可切換。</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">📜</div>
+      <h3 class="feat-title">宣紙質感</h3>
+      <p class="feat-desc">SVG fractalNoise 生成真實纖維紋理，強度可在設置中隨喜調節，文字始終是視覺主體。</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">📖</div>
+      <h3 class="feat-title">書頁翻頁動畫</h3>
+      <p class="feat-desc">3D 翻頁效果，單頁／雙頁模式，左右鍵或點擊翻頁，讀來如展閱古籍。</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">🔗</div>
+      <h3 class="feat-title">Obsidian 相容</h3>
+      <p class="feat-desc">筆記以 Markdown 格式儲存，支援 YAML frontmatter，可直接與 Obsidian Vault 共用。</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">🍎</div>
+      <h3 class="feat-title">發送至 Apple Notes</h3>
+      <p class="feat-desc">一鍵透過 AppleScript 將筆記內容傳送至系統 Apple Notes，保留粗體與換行格式。</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">🎛</div>
+      <h3 class="feat-title">樣式自定義</h3>
+      <p class="feat-desc">宣紙紋理強度、列線顯示與濃度均可調節，打造屬於你的書寫空間。</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- Download -->
+<section class="download" id="download">
+  <p class="section-label">立即取得</p>
+  <h2 class="section-title" style="margin-bottom:48px">免費下載</h2>
+  <div class="dl-card">
+    <div class="dl-icon">雨</div>
+    <p class="dl-name">RaiNote</p>
+    <p class="dl-ver">VERSION · macOS ARM64</p>
+    <a id="dl-btn" href="https://github.com/TsukimiTei/RaiNote/releases/latest" class="btn-primary">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 10V2M5 7l3 3 3-3M1 11v4h14v-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      下載 .dmg
+    </a>
+    <p class="dl-req">需要 macOS Ventura 13.0 或更新版本 · Apple Silicon</p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p class="footer-brand">雨記 RaiNote</p>
+  <div class="footer-links">
+    <a href="https://github.com/TsukimiTei/RaiNote" target="_blank">GitHub</a>
+    <a href="https://github.com/TsukimiTei/RaiNote/releases" target="_blank">Releases</a>
+    <a href="https://github.com/TsukimiTei/RaiNote/issues" target="_blank">回報問題</a>
+  </div>
+  <p class="footer-copy">© 2026 RaiNote · MIT License · 以愛製作</p>
+</footer>
+
+<script>
+  // 動態更新版本號（從 GitHub Releases API）
+  fetch('https://api.github.com/repos/TsukimiTei/RaiNote/releases/latest')
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return
+      const ver = data.tag_name || ''
+      document.querySelector('.dl-ver').textContent = ver + ' · macOS ARM64'
+      const asset = (data.assets || []).find(a => a.name.endsWith('.dmg'))
+      if (asset) {
+        document.getElementById('dl-btn').href = asset.browser_download_url
+      }
+    })
+    .catch(() => {})
+</script>
+
+</body>
+</html>
