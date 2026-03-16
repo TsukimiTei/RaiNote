@@ -91,6 +91,15 @@ ipcMain.handle('fs:exists', async (_, filePath) => {
   return fs.existsSync(filePath)
 })
 
+ipcMain.handle('fs:renameFile', async (_, oldPath, newPath) => {
+  try {
+    fs.renameSync(oldPath, newPath)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ─── Dialogs ──────────────────────────────────────────────────────
 
 ipcMain.handle('dialog:openDirectory', async () => {

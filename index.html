@@ -34,7 +34,10 @@
 <!-- ─── Main Content ─────────────────────────────────── -->
 <main id="mainContent" class="main-content">
 
-  <!-- Toolbar -->
+  <!--
+    精简后的工具栏：只保留模式切换 + 少量图标
+    减少红绿灯区域的视觉拥挤感
+  -->
   <header class="toolbar">
     <div class="toolbar-left">
       <button id="sidebarToggle" class="btn-icon" title="文件列表">
@@ -42,7 +45,6 @@
           <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </button>
-      <span id="docTitle" class="doc-title">未命名</span>
     </div>
 
     <div class="toolbar-center">
@@ -53,15 +55,30 @@
     </div>
 
     <div class="toolbar-right">
-      <button id="layoutToggle" class="btn-text" title="切换单页/双页">單頁</button>
-      <span class="meta-pill" id="wordCountPill">0字</span>
-      <span class="meta-pill" id="writeTimePill">0分</span>
-      <button id="exportBtn" class="btn-text" title="导出到Apple Notes">導出</button>
+      <button id="layoutToggle" class="btn-text" title="切換單/雙頁">單頁</button>
+      <!-- Detail icon：文档信息气泡 -->
+      <button id="detailBtn" class="btn-icon" title="文档信息">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M8 7v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="8" cy="5" r="0.9" fill="currentColor"/>
+        </svg>
+      </button>
     </div>
   </header>
 
   <!-- Editor Area -->
-  <section id="editorArea" class="editor-area">
+  <section id="editorArea" class="editor-area" data-layout="single">
+
+    <!-- 笔记标题（独立输入框，不属于正文） -->
+    <div class="note-title-wrap">
+      <input id="noteTitle"
+             type="text"
+             class="note-title"
+             placeholder="無題"
+             spellcheck="false">
+    </div>
+
     <div class="editor-scroll">
       <div class="page-frame">
         <div id="editor"
@@ -81,7 +98,6 @@
       </div>
     </div>
 
-    <!-- Navigation -->
     <button id="navNext" class="page-nav nav-next" title="下一頁">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -93,12 +109,10 @@
       </svg>
     </button>
 
-    <!-- Page indicator -->
     <div class="page-indicator">
       <span id="pageNum">1</span> / <span id="pageTot">1</span>
     </div>
 
-    <!-- Reader settings -->
     <div class="reader-settings">
       <button class="font-preset active" data-size="18">小</button>
       <button class="font-preset" data-size="22">中</button>
@@ -113,7 +127,29 @@
   </footer>
 </main>
 
-<!-- ─── Image Annotation Toolbar (on text selection) ── -->
+<!-- ─── Detail Popover ────────────────────────────────── -->
+<div id="detailPopover" class="detail-popover hidden">
+  <div class="detail-row">
+    <span class="detail-label">創建</span>
+    <span id="dpCreated" class="detail-val">—</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">修改</span>
+    <span id="dpUpdated" class="detail-val">—</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">字數</span>
+    <span id="dpWordCount" class="detail-val">—</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">時長</span>
+    <span id="dpWriteTime" class="detail-val">—</span>
+  </div>
+  <div class="detail-sep"></div>
+  <button id="popoverExportBtn" class="detail-action">導出到 Apple Notes</button>
+</div>
+
+<!-- ─── Image Annotation Toolbar ─────────────────────── -->
 <div id="annotationToolbar" class="annotation-toolbar hidden">
   <button id="addAnnotationBtn">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -141,7 +177,6 @@
         </svg>
       </button>
     </div>
-
     <div class="modal-body">
       <div class="setting-group">
         <label class="setting-label">笔記目錄（Obsidian Vault）</label>
@@ -151,7 +186,6 @@
         </div>
         <p class="setting-hint">笔記將以 Markdown 格式存入此目錄，可與 Obsidian 共享</p>
       </div>
-
       <div class="setting-group">
         <label class="setting-label">字體</label>
         <div class="setting-row">

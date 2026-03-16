@@ -7,8 +7,40 @@
   flex: 1;
   overflow: hidden;
   display: flex;
+  flex-direction: column;   /* 标题在上，编辑区在下 */
   align-items: stretch;
   background: var(--rice-paper);
+}
+
+/* ─── Note Title ───────────────────────────────────── */
+.note-title-wrap {
+  flex-shrink: 0;
+  background: var(--paper-light);
+  border-bottom: 1px solid var(--border-light);
+  padding: 14px 52px 12px;  /* 与编辑器内边距对齐 */
+}
+
+.note-title {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--font-main);
+  font-size: 24px;
+  color: var(--ink);
+  letter-spacing: 0.06em;
+  caret-color: var(--accent);
+}
+
+.note-title::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.note-title:focus {
+  /* 轻微高亮 */
+  background: rgba(139, 96, 64, 0.02);
 }
 
 .editor-scroll {
@@ -33,7 +65,7 @@
   border-right: 1px solid var(--border);
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.4);
-  min-height: calc(100vh - var(--toolbar-h) - var(--statusbar-h));
+  min-height: calc(100vh - var(--toolbar-h) - var(--title-h) - var(--statusbar-h));
   display: flex;
   align-items: flex-start;  /* 内容从顶部开始 */
   /* 宣纸纹理 */

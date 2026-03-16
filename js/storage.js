@@ -47,7 +47,7 @@ const Storage = (() => {
     return lines.join('\n')
   }
 
-  // ─── Filename helpers ─────────────────────────────
+  // ─── Filename / title helpers ─────────────────────
 
   function todayFilename () {
     const d = new Date()
@@ -55,6 +55,31 @@ const Storage = (() => {
     const m = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
     return `${y}-${m}-${day}.md`
+  }
+
+  // Extract the display title from a filename:
+  //   "2026-03-16.md"          → "2026-03-16"
+  //   "2026-03-16-春日随笔.md" → "春日随笔"
+  function extractDisplayTitle (filename) {
+    const base = filename.replace('.md', '')
+    const match = base.match(/^\d{4}-\d{2}-\d{2}-(.+)$/)
+    return match ? match[1] : base
+  }
+
+  // Build new filename given old path and a new title:
+  //   old: "2026-03-16.md", newTitle: "春日随笔"
+  //   → "2026-03-16-春日随笔.md"
+  //   old: "2026-03-16.md", newTitle: "2026-03-16"  (same as date)
+  //   → "2026-03-16.md"
+  function buildNewFilename (oldFilename, newTitle) {
+    const base       = oldFilename.replace('.md', '')
+    const dateMatch  = base.match(/^(\d{4}-\d{2}-\d{2})/)
+    const datePrefix = dateMatch ? dateMatch[1] : null
+
+    if (!datePrefix) return `${newTitle}.md`
+    const cleanTitle = newTitle.trim()
+    if (!cleanTitle || cleanTitle === datePrefix) return `${datePrefix}.md`
+    return `${datePrefix}-${cleanTitle}.md`
   }
 
   function countWords (text) {
@@ -146,6 +171,21 @@ const Storage = (() => {
     await window.electron.fs.deleteFile(filePath)
   }
 
+  // Rename a note, preserving date prefix in filename.
+  // Returns { path: newPath, changed: bool }
+  async function renameNote (oldPath, newTitle) {
+    const dir         = oldPath.substring(0, oldPath.lastIndexOf('/'))
+    const oldFilename = oldPath.split('/').pop()
+    const newFilename = buildNewFilename(oldFilename, newTitle)
+    const newPath     = dir + '/' + newFilename
+
+    if (oldPath === newPath) return { path: oldPath, changed: false }
+
+    const res = await window.electron.fs.renameFile(oldPath, newPath)
+    if (!res.ok) throw new Error(res.error)
+    return { path: newPath, changed: true }
+  }
+
   function filenameToTitle (filePath) {
     return filePath.split('/').pop().replace('.md', '')
   }
@@ -156,7 +196,8 @@ const Storage = (() => {
 
   return {
     init, getVaultPath, setVaultPath,
-    listNotes, loadNote, saveNote, createNote, deleteNote,
-    todayFilename, countWords: countWordsPublic, filenameToTitle
+    listNotes, loadNote, saveNote, createNote, deleteNote, renameNote,
+    todayFilename, countWords: countWordsPublic, filenameToTitle,
+    extractDisplayTitle, buildNewFilename
   }
 })()

@@ -115,18 +115,20 @@ const Editor = (() => {
     isFocused = false
   }
 
-  // ─── Word count + write time display ─────────────
+  // ─── Word count + write time (internal state) ────
+  // Values stored internally; app.js reads via getWordCount()/getWriteMinutes()
 
   function updateWordCount () {
-    const count = Storage.countWords(getBody())
-    document.getElementById('wordCountPill').textContent = `${count}字`
+    // No DOM update — pills removed from toolbar. Stored as module state.
+    // Callers: onInput, load
   }
 
-  function updateWriteTime () {
-    const mins = Math.round(writeSeconds / 60)
-    document.getElementById('writeTimePill').textContent = mins < 60
-      ? `${mins}分`
-      : `${Math.floor(mins / 60)}时${mins % 60}分`
+  function getWordCount () {
+    return Storage.countWords(getBody())
+  }
+
+  function getWriteMinutes () {
+    return Math.round(writeSeconds / 60)
   }
 
   function setSaveStatus (state) {
@@ -260,6 +262,6 @@ const Editor = (() => {
   return {
     init, load, save, getBody,
     insertAnnotation, hideAnnotationToolbar,
-    updateWordCount
+    getWordCount, getWriteMinutes
   }
 })()

@@ -2,11 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electron', {
   fs: {
-    readFile:  (path)          => ipcRenderer.invoke('fs:readFile', path),
-    writeFile: (path, content) => ipcRenderer.invoke('fs:writeFile', path, content),
-    listFiles: (dir)           => ipcRenderer.invoke('fs:listFiles', dir),
-    deleteFile:(path)          => ipcRenderer.invoke('fs:deleteFile', path),
-    exists:    (path)          => ipcRenderer.invoke('fs:exists', path)
+    readFile:   (path)              => ipcRenderer.invoke('fs:readFile', path),
+    writeFile:  (path, content)     => ipcRenderer.invoke('fs:writeFile', path, content),
+    listFiles:  (dir)               => ipcRenderer.invoke('fs:listFiles', dir),
+    deleteFile: (path)              => ipcRenderer.invoke('fs:deleteFile', path),
+    exists:     (path)              => ipcRenderer.invoke('fs:exists', path),
+    renameFile: (oldPath, newPath)  => ipcRenderer.invoke('fs:renameFile', oldPath, newPath)
   },
   dialog: {
     openDirectory: ()        => ipcRenderer.invoke('dialog:openDirectory'),

@@ -26,8 +26,9 @@
   --font-main: var(--font-kaiti);
 
   /* 尺寸 */
-  --toolbar-h:   48px;
-  --statusbar-h: 28px;
+  --toolbar-h:    52px;   /* 略高，让内容远离红绿灯水平线 */
+  --title-h:      56px;   /* 笔记标题区高度 */
+  --statusbar-h:  28px;
   --sidebar-w:   240px;
 }
 
@@ -67,8 +68,8 @@ body {
   background: var(--rice-paper);
   border-bottom: 1px solid var(--border-light);
   display: flex;
-  align-items: center;
-  padding: 0 16px 0 80px; /* 80px for traffic lights */
+  align-items: flex-end;          /* 贴底排列，让内容低于红绿灯中心线 */
+  padding: 0 16px 8px 80px;       /* 底部8px，与底边保持距离 */
   gap: 12px;
   -webkit-app-region: drag;
 }
@@ -451,6 +452,86 @@ body {
 }
 
 .annotation-gallery img:hover { transform: scale(1.04); }
+
+/* ─── Detail Popover ───────────────────────────────── */
+.detail-popover {
+  position: fixed;
+  z-index: 800;
+  background: var(--paper-light);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 0 8px;
+  min-width: 210px;
+  box-shadow:
+    0 4px 20px rgba(60, 30, 0, 0.14),
+    0 1px 4px rgba(60, 30, 0, 0.08);
+  /* Arrow indicator pointing up */
+}
+
+.detail-popover::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 14px;
+  width: 10px;
+  height: 10px;
+  background: var(--paper-light);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 16px;
+  gap: 12px;
+}
+
+.detail-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.detail-val {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-2);
+  text-align: right;
+}
+
+.detail-sep {
+  height: 1px;
+  background: var(--border-light);
+  margin: 8px 0;
+}
+
+.detail-action {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  background: none;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: var(--font-main);
+  font-size: 12px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.detail-action:hover {
+  background: var(--paper-shadow);
+  color: var(--ink);
+}
+
+/* ─── Note Title Area ──────────────────────────────── */
+/* (Styles in editor.css — kept here for reference) */
 
 /* ─── Utilities ────────────────────────────────────── */
 .hidden { display: none !important; }
