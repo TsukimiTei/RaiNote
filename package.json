@@ -1,0 +1,16 @@
+{
+  "name": "rainote",
+  "version": "1.0.0",
+  "description": "传统竖排写作工具 — 仿古书卷风格的个人笔记应用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^28.0.0"
+  },
+  "author": "RaiNote",
+  "license": "MIT"
+}

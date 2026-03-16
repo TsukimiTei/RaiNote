@@ -1,0 +1,149 @@
+/* ═══════════════════════════════════════════════════════
+   RaiNote — 竖排编辑器样式
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Editor Area ──────────────────────────────────── */
+.editor-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  background: var(--rice-paper);
+}
+
+.editor-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 60px;
+}
+
+/* 宣纸页面框 */
+.page-frame {
+  background: var(--paper-light);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  box-shadow:
+    0 2px 8px rgba(80, 50, 20, 0.08),
+    0 8px 32px rgba(80, 50, 20, 0.06),
+    inset 0 0 0 1px rgba(255,255,255,0.5);
+  min-height: calc(100vh - var(--toolbar-h) - var(--statusbar-h) - 80px);
+  min-width: 300px;
+  display: flex;
+  align-items: stretch;
+  /* 宣纸纹理 */
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1.75em,
+      rgba(180, 160, 130, 0.06) 1.75em,
+      rgba(180, 160, 130, 0.06) 1.76em
+    );
+}
+
+/* ─── Vertical Editor Core ─────────────────────────── */
+.editor {
+  /* 竖排书写：从右到左，每列从上到下 */
+  writing-mode: vertical-rl;
+  direction: rtl;
+  text-orientation: mixed;
+
+  font-family: var(--font-main);
+  font-size: 18px;
+  line-height: 1.9;
+  color: var(--ink);
+  letter-spacing: 0.08em;
+
+  padding: 48px 52px;
+  min-height: 100%;
+  min-width: 300px;
+  outline: none;
+  caret-color: var(--accent);
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+
+  /* 让内容向右对齐（竖排首列在最右） */
+  text-align: start;
+}
+
+/* 空编辑器占位文字 */
+.editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  pointer-events: none;
+  font-style: italic;
+}
+
+/* 文字选中 */
+.editor ::selection {
+  background: var(--selection-bg);
+}
+
+/* ─── 行内 Markdown 样式 ─────────────────────────────── */
+.editor strong { font-weight: bold; }
+.editor em     { font-style: italic; }
+
+.editor [data-heading="1"] {
+  font-size: 1.35em;
+  letter-spacing: 0.15em;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 0.1em;
+  margin-bottom: 0.5em;
+}
+
+.editor [data-heading="2"] {
+  font-size: 1.15em;
+  letter-spacing: 0.12em;
+}
+
+.editor [data-heading="3"] {
+  font-size: 1.05em;
+  color: var(--ink-2);
+}
+
+/* ─── 图片标注标记 ──────────────────────────────────── */
+.annotated-text {
+  border-bottom: 1.5px solid var(--accent);
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.annotated-text:hover {
+  background: rgba(139, 96, 64, 0.08);
+}
+
+/* 标注图标标记 */
+.annotated-text::after {
+  content: '◆';
+  font-size: 0.45em;
+  color: var(--accent);
+  vertical-align: super;
+  margin-left: 0.1em;
+}
+
+/* ─── Editor font variants ─────────────────────────── */
+body.font-songti .editor {
+  font-family: var(--font-songti);
+}
+
+/* ─── Scrollbar for horizontal scroll ─────────────── */
+.editor-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.editor-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.editor-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.editor-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>RaiNote</title>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/editor.css">
+  <link rel="stylesheet" href="css/reader.css">
+</head>
+<body>
+
+<!-- ─── Sidebar ─────────────────────────────────────── -->
+<aside id="sidebar" class="sidebar collapsed">
+  <div class="sidebar-header">
+    <button id="newNoteBtn" class="btn-icon" title="新建笔记">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <input id="searchInput" class="search-input" type="text" placeholder="搜索笔记…">
+  </div>
+  <ul id="fileList" class="file-list"></ul>
+  <div class="sidebar-footer">
+    <button id="settingsBtn" class="btn-icon" title="设置">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.54 11.54l1.41 1.41M3.05 12.95l1.42-1.41M11.54 4.46l1.41-1.41"
+              stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+</aside>
+
+<!-- ─── Main Content ─────────────────────────────────── -->
+<main id="mainContent" class="main-content">
+
+  <!-- Toolbar -->
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <button id="sidebarToggle" class="btn-icon" title="文件列表">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <span id="docTitle" class="doc-title">未命名</span>
+    </div>
+
+    <div class="toolbar-center">
+      <div class="mode-switcher">
+        <button id="editModeBtn" class="mode-btn active" data-mode="edit">編輯</button>
+        <button id="readModeBtn" class="mode-btn" data-mode="read">閱讀</button>
+      </div>
+    </div>
+
+    <div class="toolbar-right">
+      <button id="layoutToggle" class="btn-text" title="切换单页/双页">單頁</button>
+      <span class="meta-pill" id="wordCountPill">0字</span>
+      <span class="meta-pill" id="writeTimePill">0分</span>
+      <button id="exportBtn" class="btn-text" title="导出到Apple Notes">導出</button>
+    </div>
+  </header>
+
+  <!-- Editor Area -->
+  <section id="editorArea" class="editor-area">
+    <div class="editor-scroll">
+      <div class="page-frame">
+        <div id="editor"
+             class="editor"
+             contenteditable="true"
+             spellcheck="false"
+             data-placeholder="在此寫下今日所思…"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reader Area -->
+  <section id="readerArea" class="reader-area hidden">
+    <div class="reader-wrap">
+      <div id="readerBook" class="reader-book single-page">
+        <!-- Pages injected by reader.js -->
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <button id="navNext" class="page-nav nav-next" title="下一頁">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button id="navPrev" class="page-nav nav-prev" title="上一頁">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- Page indicator -->
+    <div class="page-indicator">
+      <span id="pageNum">1</span> / <span id="pageTot">1</span>
+    </div>
+
+    <!-- Reader settings -->
+    <div class="reader-settings">
+      <button class="font-preset active" data-size="18">小</button>
+      <button class="font-preset" data-size="22">中</button>
+      <button class="font-preset" data-size="28">大</button>
+    </div>
+  </section>
+
+  <!-- Status Bar -->
+  <footer class="status-bar">
+    <span id="saveStatus" class="save-status">已儲存</span>
+    <span id="createTimeLabel" class="create-time"></span>
+  </footer>
+</main>
+
+<!-- ─── Image Annotation Toolbar (on text selection) ── -->
+<div id="annotationToolbar" class="annotation-toolbar hidden">
+  <button id="addAnnotationBtn">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M1 9l3-3 3 3 2-2 4 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="4.5" cy="6" r="1" fill="currentColor"/>
+    </svg>
+    添加圖片
+  </button>
+</div>
+
+<!-- ─── Annotation Image Preview ─────────────────────── -->
+<div id="annotationPreview" class="annotation-preview hidden">
+  <div id="annotationGallery" class="annotation-gallery"></div>
+</div>
+
+<!-- ─── Settings Modal ───────────────────────────────── -->
+<div id="settingsOverlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>設置</h2>
+      <button id="closeSettingsBtn" class="btn-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="setting-group">
+        <label class="setting-label">笔記目錄（Obsidian Vault）</label>
+        <div class="setting-row">
+          <input id="vaultPathInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
+          <button id="selectVaultBtn" class="btn-secondary">選擇</button>
+        </div>
+        <p class="setting-hint">笔記將以 Markdown 格式存入此目錄，可與 Obsidian 共享</p>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">字體</label>
+        <div class="setting-row">
+          <button class="font-choice active" data-font="kaiti">楷體</button>
+          <button class="font-choice" data-font="songti">宋體</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/storage.js"></script>
+<script src="js/markdown.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
