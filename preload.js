@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electron', {
   },
   yun: {
     checkCli: () => ipcRenderer.invoke('yun:checkCli'),
+    detectCli: () => ipcRenderer.invoke('yun:detectCli'),
     readSoul: (dir) => ipcRenderer.invoke('yun:readSoul', dir),
     ask: (prompt, cwd) => ipcRenderer.invoke('yun:ask', prompt, cwd),
     onChunk: (cb) => ipcRenderer.on('yun:chunk', (_, text) => cb(text)),

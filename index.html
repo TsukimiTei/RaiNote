@@ -304,6 +304,14 @@
           </div>
           <p class="setting-hint">設定後，芸會在你寫作時給出回應。需要已安裝 Claude Code CLI。目錄下的 soul.md 定義芸的性格。</p>
         </div>
+        <div class="setting-group" style="margin-top:12px">
+          <label class="setting-label">Claude CLI 路徑</label>
+          <div class="setting-row">
+            <input id="claudePathInput" type="text" class="setting-input" readonly placeholder="未檢測">
+            <button id="detectClaudeBtn" class="btn-secondary">檢測</button>
+          </div>
+          <p class="setting-hint" id="claudePathHint">點擊「檢測」自動尋找 claude CLI 安裝位置</p>
+        </div>
       </div>
     </div>
   </div>

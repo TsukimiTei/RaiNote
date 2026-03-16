@@ -561,12 +561,44 @@
     checkYunConnection()
   })
 
+  document.getElementById('detectClaudeBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('detectClaudeBtn')
+    const input = document.getElementById('claudePathInput')
+    const hint = document.getElementById('claudePathHint')
+    btn.disabled = true
+    btn.textContent = '檢測中…'
+    input.value = '正在搜尋…'
+    hint.textContent = ''
+
+    const result = await window.electron.yun.detectCli()
+
+    btn.disabled = false
+    btn.textContent = '檢測'
+    if (result.ok) {
+      input.value = result.path
+      hint.textContent = '已找到 Claude CLI'
+      hint.style.color = '#5a9e6f'
+      checkYunConnection()
+    } else {
+      input.value = '未找到'
+      hint.textContent = '請確認已安裝 Claude Code CLI (npm i -g @anthropic-ai/claude-code)'
+      hint.style.color = '#c0392b'
+    }
+  })
+
   async function openSettings () {
     document.getElementById('vaultPathInput').value = Storage.getVaultPath() || ''
     const config = await window.electron.config.read()
     if (config.projectDir) {
       document.getElementById('projectDirInput').value = config.projectDir
     }
+    // Show current CLI path if known
+    const cliResult = await window.electron.yun.checkCli()
+    document.getElementById('claudePathInput').value = cliResult.ok ? cliResult.path : '未檢測'
+    document.getElementById('claudePathHint').textContent = cliResult.ok
+      ? '已找到 Claude CLI' : '點擊「檢測」自動尋找 claude CLI 安裝位置'
+    document.getElementById('claudePathHint').style.color = ''
+
     document.getElementById('settingsOverlay').classList.remove('hidden')
   }
 

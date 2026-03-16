@@ -256,6 +256,13 @@ ipcMain.handle('yun:checkCli', async () => {
   return { ok: !!bin, path: bin || null }
 })
 
+// Force re-detect claude CLI (clears cache)
+ipcMain.handle('yun:detectCli', async () => {
+  resolvedClaudeBin = null
+  const bin = await findClaudeBin()
+  return { ok: !!bin, path: bin || null }
+})
+
 // Read soul.md from a directory
 ipcMain.handle('yun:readSoul', async (_, dirPath) => {
   try {
