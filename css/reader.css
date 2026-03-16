@@ -97,15 +97,10 @@
   transform-style: preserve-3d;
   backface-visibility: hidden;
 
-  /* 宣纸纹理 */
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 1.9em,
-      rgba(180, 160, 130, 0.05) 1.9em,
-      rgba(180, 160, 130, 0.05) 1.91em
-    );
+  background-image:    var(--col-line-reader, none), var(--paper-texture);
+  background-size:     var(--col-line-step-reader, 36px) 100%, 300px 300px;
+  background-position: right var(--col-line-offset-reader, 48px) center, left 0;
+  background-repeat:   repeat-x, repeat;
 }
 
 /* 双页：左页 */
@@ -157,33 +152,26 @@
 
   backface-visibility: hidden;
 
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 1.9em,
-      rgba(180, 160, 130, 0.05) 1.9em,
-      rgba(180, 160, 130, 0.05) 1.91em
-    );
+  background-image:    var(--col-line-reader, none), var(--paper-texture);
+  background-size:     var(--col-line-step-reader, 36px) 100%, 300px 300px;
+  background-position: right var(--col-line-offset-reader, 48px) center, left 0;
+  background-repeat:   repeat-x, repeat;
 }
 
 /* 背面（纸张背面） */
 .flip-wrapper .flip-back {
   position: absolute;
   inset: 0;
-  background: #ede6d6;
+  background-color: #ddd5c5;
   border: 1px solid var(--border);
   border-radius: 2px;
 
   backface-visibility: hidden;
   transform: rotateY(180deg);
 
-  /* 背面轻微渐变，模拟光照 */
-  background: linear-gradient(
-    to right,
-    #e8e0d0,
-    #ddd5c5
-  );
+  /* 背面：稍深的纸背色 + 宣纸纹理 */
+  background-image: var(--paper-texture);
+  background-size: 300px 300px;
 }
 
 /* 翻页：右页向左翻 (forward) */

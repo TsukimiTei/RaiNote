@@ -43,9 +43,15 @@ const Editor = (() => {
     currentMeta = note.meta || {}
     writeSeconds = (currentMeta.writeMinutes || 0) * 60
 
-    // Display raw text (not rendered HTML) in the editor
-    // This preserves the annotation syntax ::annotate[...]:: visually
-    el.textContent = note.body || ''
+    const body = note.body || ''
+    if (body === '') {
+      // Chromium bug: empty contenteditable + writing-mode:vertical-rl 时
+      // caret 忽略 padding-right，落在元素右边缘（0px）而非内容区（52px）。
+      // 注入零宽空格让 caret 锚定到正确的 block-start 位置。
+      el.textContent = '\u200B'
+    } else {
+      el.textContent = body
+    }
 
     updateWordCount()
     updateWriteTime()
@@ -59,7 +65,8 @@ const Editor = (() => {
   }
 
   function getBody () {
-    return el.textContent || ''
+    // 去掉零宽空格（cursor anchor），不写入磁盘
+    return (el.textContent || '').replace(/\u200B/g, '')
   }
 
   // ─── Auto-save (debounced 1.5s) ───────────────────

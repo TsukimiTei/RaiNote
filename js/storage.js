@@ -153,12 +153,16 @@ const Storage = (() => {
   }
 
   async function createNote () {
-    const filename = todayFilename()
-    const filePath = vaultPath + '/' + filename
-    const exists = await window.electron.fs.exists(filePath)
+    const datePrefix = todayFilename().replace('.md', '')
 
-    if (exists) {
-      return await loadNote(filePath)
+    // 找到一个不存在的文件名（2026-03-16.md → 2026-03-16-2.md → …）
+    let filename = `${datePrefix}.md`
+    let filePath = vaultPath + '/' + filename
+    let counter = 2
+    while (await window.electron.fs.exists(filePath)) {
+      filename = `${datePrefix}-${counter}.md`
+      filePath = vaultPath + '/' + filename
+      counter++
     }
 
     const title = filename.replace('.md', '')

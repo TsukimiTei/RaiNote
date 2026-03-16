@@ -30,6 +30,12 @@
   --title-h:      56px;   /* 笔记标题区高度 */
   --statusbar-h:  28px;
   --sidebar-w:   160px;
+
+  /* 宣纸纹理 — SVG fractalNoise 生成纤维感，seamless tile */
+  --paper-texture: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Cfilter id="p" x="0" y="0" width="100%25" height="100%25"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65 0.45" numOctaves="4" stitchTiles="stitch"/%3E%3CfeColorMatrix type="matrix" values="0.6 0.4 0 0 0.1 0.4 0.5 0.1 0 0.05 0 0.3 0.5 0 0 0.4 0.4 0.2 0 0"/%3E%3C/filter%3E%3Crect width="300" height="300" filter="url(%23p)"/%3E%3C/svg%3E');
+
+  /* 列线（默认隐藏，设置中开启后变为 repeating-gradient） */
+  --col-line: none;
 }
 
 /* ─── Reset ────────────────────────────────────────── */
@@ -537,3 +543,134 @@ body {
 
 /* ─── Utilities ────────────────────────────────────── */
 .hidden { display: none !important; }
+
+/* ─── Toggle Switch ─────────────────────────────────── */
+.setting-row-between {
+  justify-content: space-between;
+  align-items: center;
+}
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0; height: 0;
+  position: absolute;
+}
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 20px;
+  transition: background 0.2s;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-track {
+  background: var(--accent);
+}
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(16px);
+}
+
+/* ─── 列线开关（像素精准对齐，从右边缘起算）────────── */
+:root {
+  --col-line-opacity:         0.18;
+  --col-line-step-editor:     34px;   /* JS 更新：computed line-height */
+  --col-line-step-reader:     36px;   /* JS 更新：fontSize * 2.0 */
+  --col-line-offset-editor:   52px;   /* JS 更新：editor padding-right */
+  --col-line-offset-reader:   48px;   /* JS 更新：r-page padding-right */
+}
+
+/* 用 linear-gradient + background-size 控制每格宽度，background-position: right 0
+   使列线从右边缘对齐（对应 writing-mode:vertical-rl 首列在右的逻辑）*/
+body.show-column-lines {
+  --col-line-editor: linear-gradient(
+    to right,
+    transparent calc(var(--col-line-step-editor) - 1px),
+    rgba(140, 100, 55, var(--col-line-opacity)) calc(var(--col-line-step-editor) - 1px)
+  );
+  --col-line-reader: linear-gradient(
+    to right,
+    transparent calc(var(--col-line-step-reader) - 1px),
+    rgba(140, 100, 55, var(--col-line-opacity)) calc(var(--col-line-step-reader) - 1px)
+  );
+}
+
+/* ─── 設置面板分區 ───────────────────────────────────── */
+.setting-section {
+  border-top: 1px solid var(--border-light);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+.setting-section-title {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 12px;
+}
+
+/* ─── Range 滑块 ─────────────────────────────────────── */
+.setting-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.setting-slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.setting-slider-label {
+  font-family: var(--font-main);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.setting-slider-val {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-muted);
+  min-width: 24px;
+  text-align: right;
+}
+input[type="range"].style-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"].style-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: background 0.15s;
+}
+input[type="range"].style-slider:hover::-webkit-slider-thumb {
+  background: var(--accent-hover);
+}
+input[type="range"].style-slider:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

@@ -5,11 +5,47 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --enable-logging"
+    "dev": "electron . --enable-logging",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
-  "dependencies": {},
   "devDependencies": {
-    "electron": "^28.0.0"
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.rainote.app",
+    "productName": "RaiNote",
+    "copyright": "Copyright © 2026 RaiNote",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "css/**",
+      "js/**",
+      "!node_modules/**",
+      "!build/**",
+      "!dist/**"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "target": [
+        { "target": "dmg", "arch": ["arm64"] }
+      ]
+    },
+    "dmg": {
+      "title": "RaiNote",
+      "background": null,
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    }
   },
   "author": "RaiNote",
   "license": "MIT"

@@ -19,7 +19,11 @@ const Reader = (() => {
 
   // ─── Init ─────────────────────────────────────────
 
-  function init () {
+  let onFontSizeChange = null
+
+  function init (opts = {}) {
+    onFontSizeChange = opts.onFontSizeChange || null
+
     navNext.addEventListener('click', () => turnPage('forward'))
     navPrev.addEventListener('click', () => turnPage('backward'))
 
@@ -29,6 +33,7 @@ const Reader = (() => {
         btn.classList.add('active')
         fontSize = parseInt(btn.dataset.size, 10)
         book.dataset.fontsize = fontSize
+        if (onFontSizeChange) onFontSizeChange(fontSize)
         // Re-paginate with new font size
         if (pages.length) {
           const rawBody = book.dataset.rawBody || ''

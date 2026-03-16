@@ -14,6 +14,15 @@
 
   // ─── Init sub-modules ───────────────────────────
 
+  const editorPlaceholderEl = document.getElementById('editorPlaceholder')
+
+  function updatePlaceholder () {
+    const el = document.getElementById('editor')
+    const text = (el.textContent || '').replace(/\u200B/g, '').trim()
+    const isEmpty = !text && !el.querySelector('img')
+    editorPlaceholderEl.style.display = isEmpty ? '' : 'none'
+  }
+
   Editor.init({
     onSave: (meta) => {
       if (currentNote) currentNote.meta = meta
@@ -21,12 +30,12 @@
       Sidebar.refresh()
     },
     onChange: () => {
-      // Follow cursor to its page, update indicator
+      updatePlaceholder()
       requestAnimationFrame(followCursor)
     }
   })
 
-  Reader.init()
+  Reader.init({ onFontSizeChange: updateColLineStepReader })
 
   Sidebar.init({
     onSelect: async (file) => {
@@ -47,6 +56,7 @@
     try {
       currentNote = preloaded || await Storage.loadNote(filePath)
       Editor.load(currentNote)
+      updatePlaceholder()
       Sidebar.setActive(filePath)
 
       // Set title in vertical title column
@@ -172,6 +182,7 @@
 
     // Clamp current page after re-layout
     setEditorPage(editorPage, false)
+    updateColLineStepEditor()
   }
 
   // Stride: distance between page positions (column width + gap between them)
@@ -458,6 +469,47 @@
     }, 200)
   })
 
+  // ─── 列线步距更新（从实际 computed line-height 获取像素值）──
+
+  function updateColLineStepEditor () {
+    const el = document.getElementById('editor')
+    if (!el) return
+    const cs = getComputedStyle(el)
+    const lh = parseFloat(cs.lineHeight)
+    const pr = parseFloat(cs.paddingRight)   // writing-mode:vertical-rl → 物理 right = block-start
+    if (lh > 0) document.documentElement.style.setProperty('--col-line-step-editor', lh + 'px')
+    if (pr > 0) document.documentElement.style.setProperty('--col-line-offset-editor', pr + 'px')
+  }
+
+  function updateColLineStepReader (size) {
+    const step   = size * 2.0   // reader line-height = 2.0
+    const offset = 48           // r-page padding-right（物理 right = block-start in vertical-rl）
+    document.documentElement.style.setProperty('--col-line-step-reader',   step + 'px')
+    document.documentElement.style.setProperty('--col-line-offset-reader', offset + 'px')
+  }
+
+  // ─── 样式工具函数 ─────────────────────────────────
+
+  // 根据强度值（0-10）动态生成宣纸纹理 CSS 变量值
+  function buildTextureVar (level) {
+    const t = level / 10  // 0.0 – 1.0
+    const a1 = (0.55 * t).toFixed(3)
+    const a2 = (0.55 * t).toFixed(3)
+    const a3 = (0.28 * t).toFixed(3)
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><filter id="p" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.65 0.45" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0.6 0.4 0 0 0.1 0.4 0.5 0.1 0 0.05 0 0.3 0.5 0 0 ${a1} ${a2} ${a3} 0 0"/></filter><rect width="300" height="300" filter="url(#p)"/></svg>`
+    return `url('data:image/svg+xml,${encodeURIComponent(svg)}')`
+  }
+
+  function applyTexture (level) {
+    document.documentElement.style.setProperty('--paper-texture', buildTextureVar(level))
+  }
+
+  function applyColLineOpacity (level) {
+    // level 1-10 → opacity 0.08–0.38
+    const opacity = (0.07 + level * 0.031).toFixed(3)
+    document.documentElement.style.setProperty('--col-line-opacity', opacity)
+  }
+
   // ─── Settings ────────────────────────────────────
 
   document.getElementById('settingsBtn').addEventListener('click', openSettings)
@@ -494,6 +546,32 @@
       config.font = font
       await window.electron.config.write(config)
     })
+  })
+
+  document.getElementById('columnLinesToggle').addEventListener('change', async (e) => {
+    const on = e.target.checked
+    document.body.classList.toggle('show-column-lines', on)
+    const config = await window.electron.config.read()
+    config.columnLines = on
+    await window.electron.config.write(config)
+  })
+
+  document.getElementById('textureSlider').addEventListener('input', async (e) => {
+    const level = Number(e.target.value)
+    document.getElementById('textureVal').textContent = level
+    applyTexture(level)
+    const config = await window.electron.config.read()
+    config.textureLevel = level
+    await window.electron.config.write(config)
+  })
+
+  document.getElementById('colLineSlider').addEventListener('input', async (e) => {
+    const level = Number(e.target.value)
+    document.getElementById('colLineVal').textContent = level
+    applyColLineOpacity(level)
+    const config = await window.electron.config.read()
+    config.colLineLevel = level
+    await window.electron.config.write(config)
   })
 
   // ─── Helpers ─────────────────────────────────────
@@ -535,18 +613,37 @@
 
   async function restoreConfig () {
     const config = await window.electron.config.read()
+
     if (config.font === 'songti') {
       document.body.classList.add('font-songti')
       document.querySelectorAll('.font-choice').forEach(b => {
         b.classList.toggle('active', b.dataset.font === 'songti')
       })
     }
+
+    // 宣纸纹理强度（默认 6）
+    const textureLevel = config.textureLevel ?? 6
+    document.getElementById('textureSlider').value = textureLevel
+    document.getElementById('textureVal').textContent = textureLevel
+    applyTexture(textureLevel)
+
+    // 列线开关 + 濃度（默认 5）
+    if (config.columnLines) {
+      document.body.classList.add('show-column-lines')
+      document.getElementById('columnLinesToggle').checked = true
+    }
+    const colLineLevel = config.colLineLevel ?? 5
+    document.getElementById('colLineSlider').value = colLineLevel
+    document.getElementById('colLineVal').textContent = colLineLevel
+    applyColLineOpacity(colLineLevel)
   }
 
   await restoreConfig()
 
   // ─── Initial columns setup ───────────────────────
   setupEditorColumns()
+  // 延迟一帧确保字体渲染完成后再读 computed line-height
+  requestAnimationFrame(updateColLineStepEditor)
 
   // ─── Initial note load ───────────────────────────
 

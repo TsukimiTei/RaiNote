@@ -112,15 +112,12 @@
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.4);
   overflow: hidden;         /* clip columns outside viewport */
-  /* 宣纸纹理 */
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 1.75em,
-      rgba(180, 160, 130, 0.06) 1.75em,
-      rgba(180, 160, 130, 0.06) 1.76em
-    );
+  /* 宣纸纹理：列线（上层，可选）+ SVG 纤维纹理（下层）
+     列线从右边缘对齐，background-size 宽度 = 一列字宽（由 JS 设置 --col-line-step-editor） */
+  background-image:    var(--col-line-editor, none), var(--paper-texture);
+  background-size:     var(--col-line-step-editor, 34px) 100%, 300px 300px;
+  background-position: right var(--col-line-offset-editor, 52px) center, left 0;
+  background-repeat:   repeat-x, repeat;
 }
 
 /* ─── 双页模式：中间书脊线 ──────────────────────────── */
@@ -188,12 +185,23 @@
   will-change: transform;
 }
 
-/* 空编辑器占位文字 */
-.editor:empty::before {
-  content: attr(data-placeholder);
+/* 占位文字 — 绝对定位与 editor 完全重叠，padding 一致 */
+.editor-placeholder {
+  position: absolute;
+  top: 0; right: 0;
+  width: 100%; height: 100%;
+  padding: 48px 52px;         /* 与 .editor 保持一致 */
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-main);
+  font-size: 18px;
+  line-height: 1.9;
+  letter-spacing: 0.08em;
   color: var(--ink-faint);
-  pointer-events: none;
   font-style: italic;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
 }
 
 /* 文字选中 */

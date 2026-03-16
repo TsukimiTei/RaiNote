@@ -99,11 +99,11 @@
 
       <div class="editor-scroll">
         <div class="page-frame">
+          <div id="editorPlaceholder" class="editor-placeholder">在此寫下今日所思…</div>
           <div id="editor"
                class="editor"
                contenteditable="true"
-               spellcheck="false"
-               data-placeholder="在此寫下今日所思…"></div>
+               spellcheck="false"></div>
         </div>
       </div>
 
@@ -233,6 +233,7 @@
       </button>
     </div>
     <div class="modal-body">
+      <!-- 基本設置 -->
       <div class="setting-group">
         <label class="setting-label">笔記目錄（Obsidian Vault）</label>
         <div class="setting-row">
@@ -246,6 +247,42 @@
         <div class="setting-row">
           <button class="font-choice active" data-font="kaiti">楷體</button>
           <button class="font-choice" data-font="songti">宋體</button>
+        </div>
+      </div>
+
+      <!-- 樣式設置 -->
+      <div class="setting-section">
+        <div class="setting-section-title">樣式</div>
+
+        <!-- 宣紙紋理強度 -->
+        <div class="setting-group">
+          <div class="setting-slider-row">
+            <div class="setting-slider-header">
+              <span class="setting-slider-label">宣紙紋理強度</span>
+              <span class="setting-slider-val" id="textureVal">6</span>
+            </div>
+            <input type="range" id="textureSlider" class="style-slider"
+              min="0" max="10" step="1" value="6">
+          </div>
+        </div>
+
+        <!-- 列線顯示 + 濃度 -->
+        <div class="setting-group" style="margin-top:12px">
+          <div class="setting-row setting-row-between">
+            <span class="setting-slider-label">顯示列線</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="columnLinesToggle">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="setting-slider-row" style="margin-top:10px">
+            <div class="setting-slider-header">
+              <span class="setting-slider-label" style="color:var(--ink-muted)">列線濃度</span>
+              <span class="setting-slider-val" id="colLineVal">5</span>
+            </div>
+            <input type="range" id="colLineSlider" class="style-slider"
+              min="1" max="10" step="1" value="5">
+          </div>
         </div>
       </div>
     </div>
