@@ -161,6 +161,38 @@ ipcMain.handle('app:getDataPath', () => app.getPath('userData'))
 
 // ─── Yun Agent (Claude CLI) ─────────────────────────────────
 
+// Resolve full path to `claude` CLI by asking the user's login shell.
+// Electron doesn't load ~/.zshrc etc., so PATH is incomplete.
+let resolvedClaudeBin = null
+
+async function findClaudeBin () {
+  if (resolvedClaudeBin) return resolvedClaudeBin
+
+  const shell = process.env.SHELL || '/bin/zsh'
+  return new Promise((resolve) => {
+    // Run `which claude` inside a login shell so PATH is fully populated
+    execFile(shell, ['-lc', 'which claude'], { timeout: 5000 }, (err, stdout) => {
+      const bin = (stdout || '').trim()
+      if (!err && bin && fs.existsSync(bin)) {
+        resolvedClaudeBin = bin
+        console.log('[yun] Resolved claude CLI:', bin)
+        resolve(bin)
+      } else {
+        // Fallback: try common locations
+        const candidates = [
+          (process.env.HOME || '') + '/.local/bin/claude',
+          '/usr/local/bin/claude',
+          '/opt/homebrew/bin/claude'
+        ]
+        for (const p of candidates) {
+          if (fs.existsSync(p)) { resolvedClaudeBin = p; resolve(p); return }
+        }
+        resolve(null)
+      }
+    })
+  })
+}
+
 // Read soul.md from a directory
 ipcMain.handle('yun:readSoul', async (_, dirPath) => {
   try {
@@ -186,24 +218,18 @@ ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
 
   return new Promise((resolve) => {
     try {
-      // Resolve claude CLI path — Electron child_process may not inherit full shell PATH
-      const claudePaths = [
-        '/Users/mac/.local/bin/claude',
-        '/usr/local/bin/claude',
-        '/opt/homebrew/bin/claude',
-        process.env.HOME + '/.local/bin/claude'
-      ]
-      let claudeBin = 'claude'
-      for (const p of claudePaths) {
-        if (fs.existsSync(p)) { claudeBin = p; break }
+      const claudeBin = await findClaudeBin()
+      if (!claudeBin) {
+        resolve({ ok: false, error: '找不到 claude CLI — 請確認已安裝 Claude Code (npm i -g @anthropic-ai/claude-code)' })
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('yun:done', { ok: false, error: '找不到 claude CLI' })
+        }
+        return
       }
 
       const proc = spawn(claudeBin, ['-p', prompt, '--output-format', 'stream-json', '--max-turns', '1'], {
         cwd,
-        env: {
-          ...process.env,
-          PATH: (process.env.PATH || '') + ':/usr/local/bin:/opt/homebrew/bin:' + (process.env.HOME || '') + '/.local/bin'
-        },
+        env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe']
       })
       yunProcess = proc
