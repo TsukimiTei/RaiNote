@@ -669,6 +669,12 @@
   const yunReplyEl = document.getElementById('yunReply')
   const yunBubbleEl = document.getElementById('yunBubble')
   const yunBubbleTextEl = document.getElementById('yunBubbleText')
+  const yunDotEl = document.getElementById('yunDot')
+
+  function setYunDot (state) {
+    // state: 'hidden' | 'connected' | 'streaming' | 'error'
+    yunDotEl.className = 'yun-dot' + (state !== 'hidden' ? ' ' + state : '')
+  }
 
   let yunDebounceTimer = null
   let yunIsStreaming = false
@@ -690,10 +696,12 @@
     yunReplyEl.classList.remove('streaming')
 
     if (result.ok && yunFullText) {
+      setYunDot('connected')
       // Store in history (keep last 10)
       yunReplyHistory.push(yunFullText)
       if (yunReplyHistory.length > 10) yunReplyHistory.shift()
     } else if (!result.ok) {
+      setYunDot('error')
       yunReplyEl.textContent = '芸暫時離開了'
       yunReplyEl.classList.add('error')
       yunBubbleTextEl.textContent = result.error || '無法連接 Claude CLI'
@@ -785,6 +793,7 @@ ${historyText}
     yunReplyEl.classList.remove('error')
     yunReplyEl.classList.add('streaming')
     yunBubbleTextEl.textContent = ''
+    setYunDot('streaming')
 
     // Call main process
     window.electron.yun.ask(prompt, projectDir)

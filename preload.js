@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('electron', {
   apple: {
     createNote: (title, body) => ipcRenderer.invoke('apple:createNote', title, body)
   },
+  shell: {
+    showInFinder: (path) => ipcRenderer.invoke('shell:showInFinder', path)
+  },
   yun: {
     readSoul: (dir) => ipcRenderer.invoke('yun:readSoul', dir),
     ask: (prompt, cwd) => ipcRenderer.invoke('yun:ask', prompt, cwd),

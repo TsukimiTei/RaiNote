@@ -270,6 +270,26 @@ const Sidebar = (() => {
       await refresh()
     })
 
+    const finderItem = document.createElement('div')
+    finderItem.textContent = '在 Finder 中顯示'
+    finderItem.style.cssText = `
+      padding: 7px 14px;
+      cursor: pointer;
+      color: var(--ink-2);
+      transition: background 0.12s;
+    `
+    finderItem.addEventListener('mouseenter', () => {
+      finderItem.style.background = 'var(--paper-shadow)'
+    })
+    finderItem.addEventListener('mouseleave', () => {
+      finderItem.style.background = ''
+    })
+    finderItem.addEventListener('click', () => {
+      menu.remove()
+      window.electron.shell.showInFinder(file.path)
+    })
+
+    menu.appendChild(finderItem)
     menu.appendChild(deleteItem)
     document.body.appendChild(menu)
 

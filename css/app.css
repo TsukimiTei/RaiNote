@@ -721,6 +721,33 @@ input[type="range"].style-slider:disabled {
 }
 
 /* ── Yun Agent Reply ─────────────────────────── */
+.yun-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.yun-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ink-faint);
+  transition: background 0.3s;
+  display: none;
+}
+.yun-dot.connected { display: block; background: #5a9e6f; }
+.yun-dot.streaming { display: block; background: #5a9e6f; animation: yunPulse 1s ease-in-out infinite; }
+.yun-dot.error     { display: block; background: #c0392b; }
+
+@keyframes yunPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .yun-reply {
   flex: 1;
   text-align: right;
