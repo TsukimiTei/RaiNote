@@ -22,5 +22,11 @@ contextBridge.exposeInMainWorld('electron', {
   },
   apple: {
     createNote: (title, body) => ipcRenderer.invoke('apple:createNote', title, body)
+  },
+  yun: {
+    readSoul: (dir) => ipcRenderer.invoke('yun:readSoul', dir),
+    ask: (prompt, cwd) => ipcRenderer.invoke('yun:ask', prompt, cwd),
+    onChunk: (cb) => ipcRenderer.on('yun:chunk', (_, text) => cb(text)),
+    onDone: (cb) => ipcRenderer.on('yun:done', (_, result) => cb(result))
   }
 })

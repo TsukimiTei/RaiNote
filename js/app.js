@@ -32,6 +32,7 @@
     onChange: () => {
       updatePlaceholder()
       requestAnimationFrame(followCursor)
+      scheduleYun()
     }
   })
 
@@ -42,9 +43,14 @@
       await openNote(file.path)
     },
     onNew: async () => {
-      const note = await Storage.createNote()
-      await openNote(note.path, note)
-      await Sidebar.refresh()
+      try {
+        const note = await Storage.createNote()
+        await openNote(note.path, note)
+        await Sidebar.refresh()
+      } catch (err) {
+        console.error('Failed to create note:', err)
+        showToast('创建笔记失败', 'error')
+      }
     }
   })
 
@@ -60,10 +66,12 @@
       Sidebar.setActive(filePath)
 
       // Set title in vertical title column
+      // Date-only filenames show empty (placeholder "无题" will appear)
       const filename = filePath.split('/').pop()
       const displayTitle = Storage.extractDisplayTitle(filename)
       const titleEl = document.getElementById('noteTitle')
-      titleEl.textContent = displayTitle
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(displayTitle)
+      titleEl.textContent = isDateOnly ? '' : displayTitle
 
       updateCreateTime(currentNote.meta?.created)
 
@@ -114,9 +122,8 @@
     if (!currentNote) return
     const newTitle = titleEl.textContent.trim()
     if (!newTitle) {
-      // Restore previous title
-      const filename = currentNote.path.split('/').pop()
-      titleEl.textContent = Storage.extractDisplayTitle(filename)
+      // Keep empty — the placeholder "无题" will show
+      titleEl.textContent = ''
       return
     }
 
@@ -527,8 +534,21 @@
     await Sidebar.refresh()
   })
 
-  function openSettings () {
+  document.getElementById('selectProjectDirBtn').addEventListener('click', async () => {
+    const dir = await window.electron.dialog.openDirectory()
+    if (!dir) return
+    document.getElementById('projectDirInput').value = dir
+    const config = await window.electron.config.read()
+    config.projectDir = dir
+    await window.electron.config.write(config)
+  })
+
+  async function openSettings () {
     document.getElementById('vaultPathInput').value = Storage.getVaultPath() || ''
+    const config = await window.electron.config.read()
+    if (config.projectDir) {
+      document.getElementById('projectDirInput').value = config.projectDir
+    }
     document.getElementById('settingsOverlay').classList.remove('hidden')
   }
 
@@ -636,9 +656,139 @@
     document.getElementById('colLineSlider').value = colLineLevel
     document.getElementById('colLineVal').textContent = colLineLevel
     applyColLineOpacity(colLineLevel)
+
+    if (config.projectDir) {
+      document.getElementById('projectDirInput').value = config.projectDir
+    }
   }
 
   await restoreConfig()
+
+  // ─── Yun Agent (芸的评论) ────────────────────
+
+  const yunReplyEl = document.getElementById('yunReply')
+  const yunBubbleEl = document.getElementById('yunBubble')
+  const yunBubbleTextEl = document.getElementById('yunBubbleText')
+
+  let yunDebounceTimer = null
+  let yunIsStreaming = false
+  let yunQueuedRequest = false
+  let yunReplyHistory = []  // last 10 replies
+  let yunFullText = ''
+  let yunLastSentText = ''  // avoid re-triggering for same content
+
+  // Listen for streaming chunks from main process
+  window.electron.yun.onChunk((text) => {
+    yunFullText += text
+    yunReplyEl.textContent = yunFullText
+    yunBubbleTextEl.textContent = yunFullText
+  })
+
+  // Listen for stream completion
+  window.electron.yun.onDone((result) => {
+    yunIsStreaming = false
+    yunReplyEl.classList.remove('streaming')
+
+    if (result.ok && yunFullText) {
+      // Store in history (keep last 10)
+      yunReplyHistory.push(yunFullText)
+      if (yunReplyHistory.length > 10) yunReplyHistory.shift()
+    } else if (!result.ok) {
+      yunReplyEl.textContent = '芸暫時離開了'
+      yunReplyEl.classList.add('error')
+      yunBubbleTextEl.textContent = result.error || '無法連接 Claude CLI'
+    }
+
+    // Process queued request if any
+    if (yunQueuedRequest) {
+      yunQueuedRequest = false
+      triggerYun()
+    }
+  })
+
+  // Hover to show full bubble
+  yunReplyEl.addEventListener('mouseenter', () => {
+    if (yunReplyEl.textContent && yunReplyEl.textContent !== '') {
+      yunBubbleEl.classList.remove('hidden')
+    }
+  })
+
+  yunReplyEl.addEventListener('mouseleave', () => {
+    setTimeout(() => {
+      if (!yunBubbleEl.matches(':hover')) {
+        yunBubbleEl.classList.add('hidden')
+      }
+    }, 100)
+  })
+
+  yunBubbleEl.addEventListener('mouseleave', () => {
+    yunBubbleEl.classList.add('hidden')
+  })
+
+  // Schedule Yun check — called whenever editor content changes
+  function scheduleYun () {
+    const config_projectDir = document.getElementById('projectDirInput').value
+    if (!config_projectDir) return  // not configured, do nothing
+
+    if (yunDebounceTimer) clearTimeout(yunDebounceTimer)
+    yunDebounceTimer = setTimeout(() => {
+      if (yunIsStreaming) {
+        yunQueuedRequest = true  // queue it
+      } else {
+        triggerYun()
+      }
+    }, 30000)  // 30 seconds after last input
+  }
+
+  async function triggerYun () {
+    const projectDir = document.getElementById('projectDirInput').value
+    if (!projectDir) return
+
+    const body = Editor.getBody()
+    // Get last 100 characters
+    const last100 = body.slice(-100)
+    if (!last100.trim()) return
+    if (last100 === yunLastSentText) return  // no change
+    yunLastSentText = last100
+
+    // Get note title
+    const title = document.getElementById('noteTitle').textContent || '無題'
+
+    // Read soul.md
+    let soulContent = ''
+    try {
+      const result = await window.electron.yun.readSoul(projectDir)
+      if (result.ok) soulContent = result.content
+    } catch {}
+
+    // Build prompt
+    const historyText = yunReplyHistory.length > 0
+      ? '\n\n你之前的回覆：\n' + yunReplyHistory.map((r, i) => `${i + 1}. ${r}`).join('\n')
+      : ''
+
+    const soulSection = soulContent
+      ? `\n\n以下是你的性格設定（soul.md）：\n${soulContent}\n\n`
+      : ''
+
+    const prompt = `${soulSection}你是一位寫作伴侶。用戶正在寫一篇名為「${title}」的筆記。
+
+以下是用戶最近寫下的文字：
+「${last100}」
+${historyText}
+
+請給出簡短的回應（1-2句話），可以是感想、鼓勵、聯想、或對內容的回應。語氣自然，像朋友在旁邊輕聲說話。不要用引號包裹回覆。`
+
+    // Start streaming
+    yunIsStreaming = true
+    yunFullText = ''
+    yunReplyEl.textContent = ''
+    yunReplyEl.classList.remove('error')
+    yunReplyEl.classList.add('streaming')
+    yunBubbleTextEl.textContent = ''
+
+    // Call main process
+    window.electron.yun.ask(prompt, projectDir)
+  }
 
   // ─── Initial columns setup ───────────────────────
   setupEditorColumns()

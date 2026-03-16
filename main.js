@@ -1,5 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
-const { execFile } = require('child_process')
+const { execFile, spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 
@@ -69,7 +69,17 @@ ipcMain.handle('fs:listFiles', async (_, dirPath) => {
       .map(f => {
         const fullPath = path.join(dirPath, f)
         const stat = fs.statSync(fullPath)
-        return { name: f, path: fullPath, mtime: stat.mtimeMs, ctime: stat.birthtimeMs }
+        // Read frontmatter 'created' field for accurate date grouping
+        let created = null
+        try {
+          const content = fs.readFileSync(fullPath, 'utf8')
+          const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+          if (fmMatch) {
+            const line = fmMatch[1].split('\n').find(l => l.trim().startsWith('created:'))
+            if (line) created = line.slice(line.indexOf(':') + 1).trim()
+          }
+        } catch {}
+        return { name: f, path: fullPath, mtime: stat.mtimeMs, ctime: stat.birthtimeMs, created }
       })
       .sort((a, b) => b.mtime - a.mtime)
     return { ok: true, files }
@@ -148,6 +158,121 @@ ipcMain.handle('app:getDataPath', () => app.getPath('userData'))
 //
 // Renderer sends pre-converted HTML body (bold as <b>, line breaks as <br>).
 // This handler only escapes for AppleScript string injection and executes.
+
+// ─── Yun Agent (Claude CLI) ─────────────────────────────────
+
+// Read soul.md from a directory
+ipcMain.handle('yun:readSoul', async (_, dirPath) => {
+  try {
+    const soulPath = path.join(dirPath, 'soul.md')
+    if (fs.existsSync(soulPath)) {
+      return { ok: true, content: fs.readFileSync(soulPath, 'utf8') }
+    }
+    return { ok: true, content: '' }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// Spawn claude CLI and stream response
+let yunProcess = null
+
+ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
+  // Kill any existing process
+  if (yunProcess) {
+    try { yunProcess.kill() } catch {}
+    yunProcess = null
+  }
+
+  return new Promise((resolve) => {
+    try {
+      // Resolve claude CLI path — Electron child_process may not inherit full shell PATH
+      const claudePaths = [
+        '/Users/mac/.local/bin/claude',
+        '/usr/local/bin/claude',
+        '/opt/homebrew/bin/claude',
+        process.env.HOME + '/.local/bin/claude'
+      ]
+      let claudeBin = 'claude'
+      for (const p of claudePaths) {
+        if (fs.existsSync(p)) { claudeBin = p; break }
+      }
+
+      const proc = spawn(claudeBin, ['-p', prompt, '--output-format', 'stream-json', '--max-turns', '1'], {
+        cwd,
+        env: {
+          ...process.env,
+          PATH: (process.env.PATH || '') + ':/usr/local/bin:/opt/homebrew/bin:' + (process.env.HOME || '') + '/.local/bin'
+        },
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+      yunProcess = proc
+
+      let fullText = ''
+      let buffer = ''
+
+      proc.stdout.on('data', (chunk) => {
+        buffer += chunk.toString()
+        const lines = buffer.split('\n')
+        buffer = lines.pop() // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const obj = JSON.parse(line)
+            // stream-json format: look for text content
+            let text = ''
+            if (obj.type === 'content_block_delta' && obj.delta?.text) {
+              text = obj.delta.text
+            } else if (obj.type === 'assistant' && typeof obj.content === 'string') {
+              text = obj.content
+            } else if (obj.result) {
+              text = typeof obj.result === 'string' ? obj.result : ''
+            }
+            if (text) {
+              fullText += text
+              // Send chunk to renderer
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('yun:chunk', text)
+              }
+            }
+          } catch {
+            // Not JSON, might be raw text
+            if (line.trim()) {
+              fullText += line
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('yun:chunk', line)
+              }
+            }
+          }
+        }
+      })
+
+      proc.stderr.on('data', (d) => {
+        console.log('[yun:stderr]', d.toString().slice(0, 200))
+      })
+
+      proc.on('close', (code) => {
+        yunProcess = null
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('yun:done', { ok: code === 0, fullText })
+        }
+        resolve({ ok: code === 0, fullText })
+      })
+
+      proc.on('error', (err) => {
+        yunProcess = null
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('yun:done', { ok: false, error: err.message })
+        }
+        resolve({ ok: false, error: err.message })
+      })
+
+    } catch (err) {
+      resolve({ ok: false, error: err.message })
+    }
+  })
+})
 
 ipcMain.handle('apple:createNote', async (_, title, htmlBody) => {
   // Escape for AppleScript double-quoted string: backslashes first, then quotes

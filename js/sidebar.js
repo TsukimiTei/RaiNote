@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════
    sidebar.js — 文件列表侧边栏
-   搜索 / 新建 / 切换笔记
+   按创建日期分组 / 折叠展开 / 搜索 / 新建 / 切换笔记
    ═══════════════════════════════════════════════════════ */
 
 const Sidebar = (() => {
@@ -14,6 +14,10 @@ const Sidebar = (() => {
   let onSelectNote  = null
   let onNewNote     = null
 
+  // Remember manual collapse/expand state during session
+  let collapsedGroups = new Set()
+  let expandedGroups  = new Set()
+
   // ─── Init ─────────────────────────────────────────
 
   function init ({ onSelect, onNew }) {
@@ -21,7 +25,9 @@ const Sidebar = (() => {
     onNewNote    = onNew
 
     searchInput.addEventListener('input', () => render(searchInput.value.trim()))
-    newNoteBtn.addEventListener('click', () => onNewNote && onNewNote())
+    newNoteBtn.addEventListener('click', () => {
+      if (onNewNote) onNewNote()
+    })
   }
 
   // ─── Load / refresh file list ─────────────────────
@@ -31,56 +37,191 @@ const Sidebar = (() => {
     render(searchInput.value.trim())
   }
 
+  // ─── Date helpers ─────────────────────────────────
+
+  // Extract YYYY-MM-DD date string from a file for grouping
+  function getFileDateStr (file) {
+    // 1. Try filename date prefix (most reliable for RaiNote files)
+    const nameMatch = file.name.match(/^(\d{4}-\d{2}-\d{2})/)
+    if (nameMatch) return nameMatch[1]
+
+    // 2. Try frontmatter 'created' field
+    if (file.created) {
+      const d = new Date(file.created)
+      if (!isNaN(d.getTime())) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      }
+    }
+
+    // 3. Fall back to file ctime
+    const d = new Date(file.ctime)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  // Format date string to display label (e.g., "3月16日 · 周日")
+  function formatDateLabel (dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    const weekday = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()]
+
+    const now = new Date()
+    const isThisYear = y === now.getFullYear()
+
+    return isThisYear
+      ? `${m}月${d}日 · 周${weekday}`
+      : `${y}年${m}月${d}日`
+  }
+
+  // Group files by creation date, sorted descending
+  function groupByDate (files) {
+    const map = new Map()
+
+    files.forEach(file => {
+      const dateStr = getFileDateStr(file)
+      if (!map.has(dateStr)) map.set(dateStr, [])
+      map.get(dateStr).push(file)
+    })
+
+    return Array.from(map.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([dateStr, groupFiles]) => {
+        // Within group: sort by filename
+        groupFiles.sort((a, b) => a.name.localeCompare(b.name))
+
+        const [y, m, d] = dateStr.split('-').map(Number)
+        const timestamp = new Date(y, m - 1, d).getTime()
+
+        return {
+          dateStr,
+          label: formatDateLabel(dateStr),
+          timestamp,
+          files: groupFiles
+        }
+      })
+  }
+
+  // ─── Display name for a file ──────────────────────
+
+  // Returns the title to show in the sidebar.
+  // Date-only filenames → "无题", custom titles → the title itself
+  function getDisplayName (filename) {
+    const base = filename.replace('.md', '')
+    // Date-only (with optional numeric counter): "2026-03-16" or "2026-03-16-2"
+    if (/^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(base)) return '无题'
+    // Date + custom title: "2026-03-16-春日随笔"
+    const match = base.match(/^\d{4}-\d{2}-\d{2}-(.+)$/)
+    if (match) return match[1]
+    // No date prefix (e.g., Obsidian files)
+    return base
+  }
+
+  // ─── Render ───────────────────────────────────────
+
   function render (query = '') {
     const lower = query.toLowerCase()
     const filtered = query
-      ? allFiles.filter(f => f.name.toLowerCase().includes(lower))
+      ? allFiles.filter(f => {
+          const displayName = getDisplayName(f.name)
+          return f.name.toLowerCase().includes(lower) ||
+                 displayName.toLowerCase().includes(lower)
+        })
       : allFiles
 
     fileList.innerHTML = ''
 
     if (!filtered.length) {
-      const li = document.createElement('li')
-      li.className = 'file-item'
-      li.innerHTML = `<div class="file-item-name" style="color:var(--ink-faint)">无笔记</div>`
-      fileList.appendChild(li)
+      const el = document.createElement('div')
+      el.className = 'file-item'
+      el.innerHTML = `<div class="file-item-name" style="color:var(--ink-faint)">无笔记</div>`
+      fileList.appendChild(el)
       return
     }
 
-    filtered.forEach(file => {
-      const li    = document.createElement('li')
-      li.className = 'file-item' + (file.path === activeFile ? ' active' : '')
-      li.dataset.path = file.path
+    // If searching, show flat list without grouping
+    if (query) {
+      filtered.forEach(file => renderFileItem(file, fileList))
+      return
+    }
 
-      const name = file.name.replace('.md', '')
-      const date = new Date(file.mtime).toLocaleDateString('zh-CN', {
-        month: 'short', day: 'numeric'
-      })
+    // Group by creation date
+    const groups = groupByDate(filtered)
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
 
-      li.innerHTML = `
-        <div class="file-item-name">${Markdown.escapeHtml(name)}</div>
-        <div class="file-item-meta">${date}</div>
+    groups.forEach(group => {
+      // Determine collapsed state: manual toggle > default rule
+      let isCollapsed
+      if (expandedGroups.has(group.dateStr)) {
+        isCollapsed = false
+      } else if (collapsedGroups.has(group.dateStr)) {
+        isCollapsed = true
+      } else {
+        // Default: collapse if older than 7 days
+        isCollapsed = group.timestamp < sevenDaysAgo
+      }
+
+      // ── Date group header
+      const header = document.createElement('div')
+      header.className = 'date-group-header' + (isCollapsed ? ' collapsed' : '')
+
+      header.innerHTML = `
+        <span class="date-group-arrow">${isCollapsed ? '▸' : '▾'}</span>
+        <span class="date-group-label">${group.label}</span>
+        <span class="date-group-count">${group.files.length}</span>
       `
 
-      li.addEventListener('click', () => {
-        setActive(file.path)
-        if (onSelectNote) onSelectNote(file)
-      })
+      fileList.appendChild(header)
 
-      // Right-click context menu placeholder (future: delete)
-      li.addEventListener('contextmenu', e => {
-        e.preventDefault()
-        showContextMenu(e, file)
-      })
+      // ── File items container
+      const container = document.createElement('div')
+      container.className = 'date-group-items'
+      if (isCollapsed) container.style.display = 'none'
 
-      fileList.appendChild(li)
+      group.files.forEach(file => renderFileItem(file, container))
+      fileList.appendChild(container)
+
+      // ── Toggle collapse on header click
+      header.addEventListener('click', () => {
+        const nowCollapsed = container.style.display !== 'none'
+        container.style.display = nowCollapsed ? 'none' : ''
+        header.classList.toggle('collapsed', nowCollapsed)
+        header.querySelector('.date-group-arrow').textContent = nowCollapsed ? '▸' : '▾'
+
+        if (nowCollapsed) {
+          collapsedGroups.add(group.dateStr)
+          expandedGroups.delete(group.dateStr)
+        } else {
+          expandedGroups.add(group.dateStr)
+          collapsedGroups.delete(group.dateStr)
+        }
+      })
     })
+  }
+
+  function renderFileItem (file, parent) {
+    const el = document.createElement('div')
+    el.className = 'file-item' + (file.path === activeFile ? ' active' : '')
+    el.dataset.path = file.path
+
+    const displayName = getDisplayName(file.name)
+    el.innerHTML = `<div class="file-item-name">${Markdown.escapeHtml(displayName)}</div>`
+
+    el.addEventListener('click', () => {
+      setActive(file.path)
+      if (onSelectNote) onSelectNote(file)
+    })
+
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault()
+      showContextMenu(e, file)
+    })
+
+    parent.appendChild(el)
   }
 
   function setActive (filePath) {
     activeFile = filePath
-    fileList.querySelectorAll('.file-item').forEach(li => {
-      li.classList.toggle('active', li.dataset.path === filePath)
+    fileList.querySelectorAll('.file-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.path === filePath)
     })
   }
 

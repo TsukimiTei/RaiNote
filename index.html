@@ -19,7 +19,7 @@
     </button>
     <input id="searchInput" class="search-input" type="text" placeholder="搜索笔记…">
   </div>
-  <ul id="fileList" class="file-list"></ul>
+  <div id="fileList" class="file-list"></div>
 </aside>
 
 <!-- ─── Main Content ─────────────────────────────────── -->
@@ -176,7 +176,13 @@
     <footer class="status-bar">
       <span id="saveStatus" class="save-status">已儲存</span>
       <span id="createTimeLabel" class="create-time"></span>
+      <span id="yunReply" class="yun-reply"></span>
     </footer>
+
+    <!-- Yun reply bubble -->
+    <div id="yunBubble" class="yun-bubble hidden">
+      <div id="yunBubbleText" class="yun-bubble-text"></div>
+    </div>
 
   </div><!-- .content-col -->
 
@@ -283,6 +289,19 @@
             <input type="range" id="colLineSlider" class="style-slider"
               min="1" max="10" step="1" value="5">
           </div>
+        </div>
+      </div>
+
+      <!-- 芸 Agent 設置 -->
+      <div class="setting-section">
+        <div class="setting-section-title">芸</div>
+        <div class="setting-group">
+          <label class="setting-label">項目目錄（Claude Code 工作目錄）</label>
+          <div class="setting-row">
+            <input id="projectDirInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
+            <button id="selectProjectDirBtn" class="btn-secondary">選擇</button>
+          </div>
+          <p class="setting-hint">設定後，芸會在你寫作時給出回應。需要已安裝 Claude Code CLI。目錄下的 soul.md 定義芸的性格。</p>
         </div>
       </div>
     </div>
