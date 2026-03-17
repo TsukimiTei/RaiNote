@@ -79,11 +79,11 @@
   writing-mode: vertical-rl;
   text-orientation: mixed;
   font-family: var(--font-main);
-  font-size: 12px;
+  font-size: 15px;
   color: var(--ink-muted);
-  letter-spacing: 0.08em;
-  line-height: 1.8;
-  padding: 20px 16px;
+  letter-spacing: 0.12em;
+  line-height: 2;
+  padding: 16px 14px;
   width: 100%;
   flex: 1;
   overflow: hidden;

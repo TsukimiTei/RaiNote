@@ -17,6 +17,74 @@
   --accent-hover:  #6b4828;
   --selection-bg:  rgba(139, 96, 64, 0.15);
 
+  /* ── Theme: 宣紙 (default, warm rice paper) ── */
+}
+
+/* ── Theme: 月白 (cool moonlight) ── */
+body.theme-yuebai {
+  --rice-paper:    #e8edf0;
+  --paper-light:   #f2f5f7;
+  --paper-shadow:  #d8dee3;
+  --ink:           #1a2030;
+  --ink-2:         #2d3a4a;
+  --ink-muted:     #6b7a8a;
+  --ink-faint:     #a0aab5;
+  --border:        #b0bec5;
+  --border-light:  #d0d8de;
+  --accent:        #4a7a8a;
+  --accent-hover:  #356068;
+  --selection-bg:  rgba(74, 122, 138, 0.15);
+}
+
+/* ── Theme: 松煙 (dark pine soot) ── */
+body.theme-songyan {
+  --rice-paper:    #1e1e1e;
+  --paper-light:   #252525;
+  --paper-shadow:  #151515;
+  --ink:           #d8d0c4;
+  --ink-2:         #c0b8a8;
+  --ink-muted:     #8a8070;
+  --ink-faint:     #5a5348;
+  --border:        #3a3530;
+  --border-light:  #333028;
+  --accent:        #b89060;
+  --accent-hover:  #d0a870;
+  --selection-bg:  rgba(184, 144, 96, 0.2);
+}
+
+/* ── Theme: 藤紫 (wisteria purple) ── */
+body.theme-tengzi {
+  --rice-paper:    #ece8f2;
+  --paper-light:   #f5f2f8;
+  --paper-shadow:  #ddd5e8;
+  --ink:           #201828;
+  --ink-2:         #382848;
+  --ink-muted:     #7a6888;
+  --ink-faint:     #a898b8;
+  --border:        #c4b5d0;
+  --border-light:  #ddd2e8;
+  --accent:        #7a5a98;
+  --accent-hover:  #5a3a78;
+  --selection-bg:  rgba(122, 90, 152, 0.15);
+}
+
+/* ── Theme: 青竹 (bamboo green) ── */
+body.theme-qingzhu {
+  --rice-paper:    #e8efe8;
+  --paper-light:   #f2f7f2;
+  --paper-shadow:  #d5e0d5;
+  --ink:           #1a2818;
+  --ink-2:         #2a3a28;
+  --ink-muted:     #5a7a58;
+  --ink-faint:     #90b090;
+  --border:        #a8c8a8;
+  --border-light:  #c8ddc8;
+  --accent:        #4a7a48;
+  --accent-hover:  #3a6038;
+  --selection-bg:  rgba(74, 122, 72, 0.15);
+}
+
+:root {
   /* 字体栈 */
   --font-kaiti:  'STKaiti', 'KaiTi SC', 'BiauKai', 'AR PL UKai CN', 'KaiTi', serif;
   --font-songti: 'STSong', 'Songti SC', 'SimSun', 'AR PL UMing CN', serif;
@@ -449,6 +517,57 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+/* ─── Theme Chooser ────────────────────────────────── */
+.theme-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.theme-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 10px 12px 8px;
+  font-family: var(--font-main);
+  font-size: 11px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 56px;
+}
+
+.theme-choice:hover {
+  background: var(--paper-shadow);
+}
+
+.theme-choice.active {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.theme-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  transition: transform 0.15s;
+}
+
+.theme-choice:hover .theme-swatch {
+  transform: scale(1.1);
+}
+
+.theme-choice.active .theme-swatch {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 /* ─── Annotation Toolbar ───────────────────────────── */

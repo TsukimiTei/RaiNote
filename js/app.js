@@ -674,6 +674,29 @@
     })
   })
 
+  // ─── Theme switcher ─────────────────────────────
+  const allThemes = ['xuanzhi', 'yuebai', 'songyan', 'tengzi', 'qingzhu']
+
+  function applyTheme (theme) {
+    // Remove all theme classes, then add the selected one (xuanzhi = default, no class)
+    allThemes.forEach(t => document.body.classList.remove('theme-' + t))
+    if (theme !== 'xuanzhi') {
+      document.body.classList.add('theme-' + theme)
+    }
+  }
+
+  document.querySelectorAll('.theme-choice').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      document.querySelectorAll('.theme-choice').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      const theme = btn.dataset.theme
+      applyTheme(theme)
+      const config = await window.electron.config.read()
+      config.theme = theme
+      await window.electron.config.write(config)
+    })
+  })
+
   document.getElementById('columnLinesToggle').addEventListener('change', async (e) => {
     const on = e.target.checked
     document.body.classList.toggle('show-column-lines', on)
@@ -744,6 +767,14 @@
       document.body.classList.add('font-songti')
       document.querySelectorAll('.font-choice').forEach(b => {
         b.classList.toggle('active', b.dataset.font === 'songti')
+      })
+    }
+
+    // 主题
+    if (config.theme && config.theme !== 'xuanzhi') {
+      applyTheme(config.theme)
+      document.querySelectorAll('.theme-choice').forEach(b => {
+        b.classList.toggle('active', b.dataset.theme === config.theme)
       })
     }
 
