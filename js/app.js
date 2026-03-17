@@ -248,11 +248,9 @@
     editPageTotEl.textContent  = total
     editNavPrevBtn.disabled    = editorPage <= 0
     editNavNextBtn.disabled    = editorPage >= total - 1
-    // Hide all page nav when only 1 page
-    const singlePage = total <= 1
-    editNavPrevBtn.style.display = singlePage ? 'none' : ''
-    editNavNextBtn.style.display = singlePage ? 'none' : ''
-    document.querySelector('.edit-page-indicator').style.display = singlePage ? 'none' : ''
+    // Hide all page nav when only 1 page (use class to avoid conflicting with CSS)
+    const edArea = document.getElementById('editorArea')
+    edArea.classList.toggle('single-page', total <= 1)
   }
 
   // When user types, follow cursor to its page (no animation)
@@ -957,7 +955,6 @@ ${historyText}
     yunFullText = ''
     yunColTextEl.innerHTML = ''
     yunColTextEl.classList.add('streaming')
-    yunReplyEl.textContent = ''
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
 

@@ -106,10 +106,15 @@ const Editor = (() => {
       text += domToText(child)
     }
 
-    // Chromium wraps Enter in <div>; treat as paragraph break
+    // Chromium wraps Enter in <div>; treat as paragraph break.
+    // Only add newline if there's a preceding sibling that isn't
+    // purely whitespace (avoids spurious leading newline when first
+    // child is already a <div>).
     if (node !== el && node.nodeType === Node.ELEMENT_NODE &&
         (node.nodeName === 'DIV' || node.nodeName === 'P') && node.previousSibling) {
-      text = '\n' + text
+      const prev = node.previousSibling
+      const prevEmpty = prev.nodeType === Node.TEXT_NODE && !prev.textContent.replace(/\u200B/g, '').trim()
+      if (!prevEmpty) text = '\n' + text
     }
 
     return text

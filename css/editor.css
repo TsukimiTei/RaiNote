@@ -40,7 +40,7 @@
 }
 
 .note-title-center:hover {
-  opacity: 0.7;
+  opacity: 0.9;
 }
 
 .note-title-center.editing {
@@ -352,6 +352,13 @@ body.font-songti .editor {
 .editor-area.nav-visible .edit-nav-next:disabled {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Hide all page nav when content fits in one page */
+.editor-area.single-page .edit-nav-prev,
+.editor-area.single-page .edit-nav-next,
+.editor-area.single-page .edit-page-indicator {
+  display: none;
 }
 
 .edit-page-indicator {
