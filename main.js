@@ -43,6 +43,22 @@ function createWindow () {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
+
+  mainWindow.on('close', (e) => {
+    e.preventDefault()
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'question',
+      buttons: ['離開', '取消'],
+      defaultId: 1,
+      cancelId: 1,
+      title: '確認關閉',
+      message: '確定要離開雨記嗎？',
+      detail: '未儲存的內容將自動保存。'
+    })
+    if (choice === 0) {
+      mainWindow.destroy()
+    }
+  })
 }
 
 app.whenReady().then(() => {

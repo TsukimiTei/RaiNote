@@ -488,6 +488,81 @@
     await Editor.insertAnnotation(selText, paths)
   })
 
+  // ─── "問芸" inline selection handler ──────────────
+  document.getElementById('askYunBtn').addEventListener('click', async () => {
+    const toolbar = document.getElementById('annotationToolbar')
+    const askBtn  = document.getElementById('askYunBtn')
+    const selText = toolbar.dataset.selectedText
+    if (!selText) return
+
+    // Get the full editor body to extract context around the selection
+    const fullBody = Editor.getBody()
+    const selIdx   = fullBody.indexOf(selText)
+    const ctxStart = Math.max(0, selIdx - 500)
+    const ctxEnd   = Math.min(fullBody.length, selIdx + selText.length + 500)
+    const contextBefore = fullBody.slice(ctxStart, selIdx)
+    const contextAfter  = fullBody.slice(selIdx + selText.length, ctxEnd)
+
+    // Build the prompt
+    const prompt = `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你說話自然親切，帶著清代文人妻子的雅致，但不矯揉造作——是閨房中夫妻間的私語，不是寫給外人看的書信。
+
+用口語化的方式回應，1-2句即可。不要加「芸：」前綴，不要翻譯或改寫，不要結構化輸出。
+
+夫君對你說：「${selText}」
+
+（夫君正在寫的文章，供你了解語境：${contextBefore}${selText}${contextAfter}）`
+
+    // Show loading state
+    askBtn.classList.add('yun-loading')
+    askBtn.textContent = '…'
+
+    // Save the current selection range before the async call
+    const sel = window.getSelection()
+    let savedRange = null
+    if (sel && sel.rangeCount) {
+      savedRange = sel.getRangeAt(0).cloneRange()
+    }
+
+    let result = null
+    try {
+      // Call the appropriate non-streaming backend
+      if (yunBackend === 'openrouter') {
+        const apiKey = document.getElementById('openRouterKeyInput').value
+        const model  = document.getElementById('openRouterModelSelect').value
+        if (!apiKey) { showToast('請先設置 OpenRouter API Key', 'error'); return }
+        result = await window.electron.yun.openrouterSync(apiKey, model, prompt)
+      } else {
+        const projectDir = document.getElementById('projectDirInput').value
+        result = await window.electron.yun.askSync(prompt, projectDir || undefined)
+      }
+    } catch (err) {
+      showToast('芸暫時無法回應：' + (err.message || '未知錯誤'), 'error')
+      return
+    } finally {
+      askBtn.classList.remove('yun-loading')
+      askBtn.textContent = '芸'
+    }
+
+    if (!result || !result.ok || !result.fullText) {
+      showToast('芸暫時無法回應' + (result?.error ? '：' + result.error : ''), 'error')
+      return
+    }
+
+    // Insert response after the selected text
+    const responseText = '\n芸：' + result.fullText.trim()
+
+    // Restore selection and collapse to end, then insert
+    if (savedRange) {
+      const insertRange = savedRange.cloneRange()
+      insertRange.collapse(false)  // collapse to end of selection
+      sel.removeAllRanges()
+      sel.addRange(insertRange)
+    }
+    document.execCommand('insertText', false, responseText)
+
+    Editor.hideAnnotationToolbar()
+  })
+
   document.addEventListener('click', (e) => {
     const tb = document.getElementById('annotationToolbar')
     if (!tb.contains(e.target)) Editor.hideAnnotationToolbar()
@@ -973,13 +1048,13 @@
       ? `\n\n以下是你的性格設定（soul.md）：\n${soulContent}\n\n`
       : ''
 
-    const prompt = `${soulSection}你是一位寫作伴侶。用戶正在寫一篇名為「${title}」的筆記。
+    const prompt = `${soulSection}你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君寫字，偶爾輕聲說上一句。
 
-以下是用戶最近寫下的文字：
+夫君正在寫「${title}」，最近寫下的文字：
 「${last100}」
 ${historyText}
 
-請給出簡短的回應（1-2句話），可以是感想、鼓勵、聯想、或對內容的回應。語氣自然，像朋友在旁邊輕聲說話。不要用引號包裹回覆。`
+用閨房私語的口吻輕聲回應1句，自然親切，不矯揉。不要用引號包裹。`
 
     // Start streaming
     yunIsStreaming = true

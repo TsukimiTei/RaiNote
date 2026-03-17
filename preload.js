@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('electron', {
     readSoul: (dir) => ipcRenderer.invoke('yun:readSoul', dir),
     ask: (prompt, cwd) => ipcRenderer.invoke('yun:ask', prompt, cwd),
     openrouter: (key, model, prompt) => ipcRenderer.invoke('yun:openrouter', key, model, prompt),
+    askSync: (prompt, cwd) => ipcRenderer.invoke('yun:askSync', prompt, cwd),
+    openrouterSync: (key, model, prompt) => ipcRenderer.invoke('yun:openrouterSync', key, model, prompt),
     onChunk: (cb) => ipcRenderer.on('yun:chunk', (_, text) => cb(text)),
     onDone: (cb) => ipcRenderer.on('yun:done', (_, result) => cb(result))
   }

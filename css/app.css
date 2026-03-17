@@ -574,13 +574,14 @@ body {
 .annotation-toolbar {
   position: fixed;
   z-index: 500;
-  background: var(--ink);
-  border-radius: 6px;
-  padding: 5px 8px;
+  background: var(--paper-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  gap: 2px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   transition: opacity 0.15s;
 }
 
@@ -589,31 +590,28 @@ body {
 .annotation-toolbar button {
   background: none;
   border: none;
-  color: #fff;
+  color: var(--ink-2);
   font-family: var(--font-main);
   font-size: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  opacity: 0.9;
-  transition: opacity 0.15s;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: background 0.15s, color 0.15s;
 }
 
-.annotation-toolbar button:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+.annotation-toolbar button:hover { background: var(--paper-shadow); color: var(--ink); }
 
-/* "問芸" button — distinct accent style */
+/* "問芸" button — accent style */
 #askYunBtn {
-  font-family: var(--font-main);
   font-size: 13px;
   font-weight: bold;
   letter-spacing: 0.05em;
-  color: #f0ebe0;
-  opacity: 1;
+  color: var(--accent);
 }
-#askYunBtn:hover { background: rgba(255,255,255,0.15); }
+#askYunBtn:hover { background: var(--paper-shadow); color: var(--accent-hover); }
 #askYunBtn.yun-loading {
   opacity: 0.5;
   pointer-events: none;
@@ -623,7 +621,7 @@ body {
 .annotation-toolbar-sep {
   width: 1px;
   height: 14px;
-  background: rgba(255,255,255,0.2);
+  background: var(--border-light);
   flex-shrink: 0;
 }
 
