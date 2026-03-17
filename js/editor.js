@@ -17,6 +17,9 @@ const Editor = (() => {
   let onSaveCallback = null
   let onChangeCallback = null
 
+  // Annotation syntax regex
+  const ANNOTATE_RE = /::annotate\[([^\]]+)\]\{images=\[([^\]]*)\]\}::/g
+
   // ─── Init ─────────────────────────────────────────
 
   function init ({ onSave, onChange } = {}) {
@@ -48,25 +51,72 @@ const Editor = (() => {
       // Chromium bug: empty contenteditable + writing-mode:vertical-rl 时
       // caret 忽略 padding-right，落在元素右边缘（0px）而非内容区（52px）。
       // 注入零宽空格让 caret 锚定到正确的 block-start 位置。
-      el.textContent = '\u200B'
+      el.innerHTML = '\u200B'
     } else {
-      el.textContent = body
+      // Parse annotations into styled spans; plain text is escaped
+      el.innerHTML = bodyToHtml(body)
     }
 
     updateWordCount()
     updateWriteTime()
 
-    // writing-mode: vertical-rl without direction:rtl — columns flow right to left.
-    // scrollLeft=0 naturally shows the rightmost column (document start).
-    // The browser will follow the cursor during typing automatically.
+    // writing-mode: vertical-rl — scrollLeft=0 shows rightmost column (doc start)
     requestAnimationFrame(() => {
       el.parentElement.scrollLeft = 0
     })
   }
 
+  // ─── Body ↔ HTML conversion ────────────────────────
+
+  // Convert raw body text → innerHTML with annotation spans
+  function bodyToHtml (body) {
+    ANNOTATE_RE.lastIndex = 0
+    let html = ''
+    let lastIdx = 0
+    let m
+
+    while ((m = ANNOTATE_RE.exec(body)) !== null) {
+      // Text before annotation
+      html += Markdown.escapeHtml(body.slice(lastIdx, m.index))
+      // Annotation span — editable so cursor can navigate freely
+      const text = m[1]
+      const images = m[2].split(',').map(s => s.trim()).filter(Boolean)
+      const data = encodeURIComponent(JSON.stringify(images))
+      html += `<span class="annotated-text" data-images="${data}">${Markdown.escapeHtml(text)}</span>\u200B`
+      lastIdx = m.index + m[0].length
+    }
+
+    html += Markdown.escapeHtml(body.slice(lastIdx))
+    return html || '\u200B'
+  }
+
+  // Walk DOM → raw text with annotation syntax restored
+  function domToText (node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent
+    if (node.nodeName === 'BR') return '\n'
+
+    // Annotation span → ::annotate[text]{images=[...]}::
+    if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains('annotated-text')) {
+      const images = JSON.parse(decodeURIComponent(node.dataset.images || '[]'))
+      return `::annotate[${node.textContent}]{images=[${images.join(', ')}]}::`
+    }
+
+    let text = ''
+    for (const child of node.childNodes) {
+      text += domToText(child)
+    }
+
+    // Chromium wraps Enter in <div>; treat as paragraph break
+    if (node !== el && node.nodeType === Node.ELEMENT_NODE &&
+        (node.nodeName === 'DIV' || node.nodeName === 'P') && node.previousSibling) {
+      text = '\n' + text
+    }
+
+    return text
+  }
+
   function getBody () {
-    // 去掉零宽空格（cursor anchor），不写入磁盘
-    return (el.textContent || '').replace(/\u200B/g, '')
+    return domToText(el).replace(/\u200B/g, '')
   }
 
   // ─── Auto-save (debounced 1.5s) ───────────────────
@@ -124,11 +174,9 @@ const Editor = (() => {
   }
 
   // ─── Word count + write time (internal state) ────
-  // Values stored internally; app.js reads via getWordCount()/getWriteMinutes()
 
   function updateWordCount () {
-    // No DOM update — pills removed from toolbar. Stored as module state.
-    // Callers: onInput, load
+    // No DOM update — values stored as module state
   }
 
   function getWordCount () {
@@ -154,6 +202,35 @@ const Editor = (() => {
     if (e.key === 'Tab') {
       e.preventDefault()
       document.execCommand('insertText', false, '\u3000\u3000')
+      return
+    }
+
+    // Cmd+Up → 列首（vertical-rl: physical top = inline-start）
+    // Cmd+Down → 列尾（vertical-rl: physical bottom = inline-end）
+    if (e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault()
+      const sel = window.getSelection()
+      if (!sel || !sel.rangeCount) return
+
+      const range = sel.getRangeAt(0)
+      const node = sel.focusNode
+      if (!node) return
+
+      // Find the text node or element we're in
+      const textNode = node.nodeType === 3 ? node : node.firstChild || node
+
+      if (e.key === 'ArrowUp') {
+        // Move to start of current text node / line
+        range.setStart(textNode, 0)
+        range.collapse(true)
+      } else {
+        // Move to end of current text node / line
+        const len = textNode.nodeType === 3 ? textNode.length : 0
+        range.setStart(textNode, len)
+        range.collapse(true)
+      }
+      sel.removeAllRanges()
+      sel.addRange(range)
     }
   }
 
@@ -185,8 +262,22 @@ const Editor = (() => {
 
     const toolbar = document.getElementById('annotationToolbar')
     toolbar.classList.remove('hidden')
-    toolbar.style.left = `${rect.left + rect.width / 2 - toolbar.offsetWidth / 2}px`
-    toolbar.style.top  = `${rect.top - 44}px`
+
+    // Position: prefer above selection, fall back to below if too close to top
+    const toolbarH = toolbar.offsetHeight || 36
+    const toolbarW = toolbar.offsetWidth || 100
+    const gap = 8
+    let top = rect.top - toolbarH - gap
+    if (top < 40) {
+      // Not enough room above (drag region + margin) → place below selection
+      top = rect.bottom + gap
+    }
+    // Horizontal: center on selection, clamp to viewport
+    let left = rect.left + rect.width / 2 - toolbarW / 2
+    left = Math.max(8, Math.min(left, window.innerWidth - toolbarW - 8))
+
+    toolbar.style.left = `${left}px`
+    toolbar.style.top  = `${top}px`
 
     // Store selected text for the annotation button
     toolbar.dataset.selectedText = selectedText
@@ -243,17 +334,30 @@ const Editor = (() => {
   // ─── Insert annotation into editor ───────────────
 
   async function insertAnnotation (selectedText, imagePaths) {
-    const syntax = Markdown.buildAnnotation(selectedText, imagePaths)
-    // Replace selected text with annotation syntax
     const sel = window.getSelection()
-    if (sel && sel.rangeCount) {
-      const range = sel.getRangeAt(0)
-      range.deleteContents()
-      range.insertNode(document.createTextNode(syntax))
-      sel.removeAllRanges()
-    }
+    if (!sel || !sel.rangeCount) return
+
+    const range = sel.getRangeAt(0)
+    range.deleteContents()
+
+    // Create styled annotation span (editable so cursor can navigate)
+    const span = document.createElement('span')
+    span.className = 'annotated-text'
+    span.dataset.images = encodeURIComponent(JSON.stringify(imagePaths))
+    span.textContent = selectedText
+
+    // Insert span + zero-width space after it for cursor landing
+    const spacer = document.createTextNode('\u200B')
+    range.insertNode(spacer)
+    range.insertNode(span)
+
+    // Move cursor after the spacer
+    range.setStartAfter(spacer)
+    range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+
     hideAnnotationToolbar()
-    // Trigger save
     onInput()
   }
 
@@ -264,17 +368,6 @@ const Editor = (() => {
     const textNode = document.createTextNode(text)
     spanEl.parentNode.replaceChild(textNode, spanEl)
     onInput()
-  }
-
-  // ─── Render annotated spans in editor ────────────
-  // Called after load to highlight existing annotations visually
-  // We do a simple highlight by scanning textContent with regex
-
-  function refreshAnnotationHighlights () {
-    // This is a best-effort visual enhancement.
-    // Since the editor shows raw text, we just let the ::annotate[...]:: syntax
-    // be visible as plain text. Full rendering happens in reading mode.
-    // Future improvement: use Shadow DOM or overlay for rich annotation display.
   }
 
   return {

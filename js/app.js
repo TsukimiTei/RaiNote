@@ -32,8 +32,8 @@
   function updatePlaceholder () {
     const el = document.getElementById('editor')
     const text = (el.textContent || '').replace(/\u200B/g, '').trim()
-    const isEmpty = !text && !el.querySelector('img')
-    editorPlaceholderEl.style.display = isEmpty ? '' : 'none'
+    const hasContent = text || el.querySelector('img') || el.querySelector('.annotated-text')
+    editorPlaceholderEl.style.display = hasContent ? 'none' : ''
   }
 
   Editor.init({
@@ -116,6 +116,10 @@
   // On blur/Enter → rename file.
 
   const titleEl = document.getElementById('noteTitle')
+
+  // Title is pointer-events:none by default; click on it to start editing
+  titleEl.addEventListener('focus', () => titleEl.classList.add('editing'))
+  titleEl.addEventListener('blur', () => titleEl.classList.remove('editing'))
 
   titleEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -244,6 +248,11 @@
     editPageTotEl.textContent  = total
     editNavPrevBtn.disabled    = editorPage <= 0
     editNavNextBtn.disabled    = editorPage >= total - 1
+    // Hide all page nav when only 1 page
+    const singlePage = total <= 1
+    editNavPrevBtn.style.display = singlePage ? 'none' : ''
+    editNavNextBtn.style.display = singlePage ? 'none' : ''
+    document.querySelector('.edit-page-indicator').style.display = singlePage ? 'none' : ''
   }
 
   // When user types, follow cursor to its page (no animation)
@@ -784,7 +793,7 @@
 
   // ─── Yun Agent (芸的评论) ────────────────────
 
-  const yunReplyEl = document.getElementById('yunReply')
+  const yunColTextEl = document.getElementById('yunColText')   // right column
   const yunBubbleEl = document.getElementById('yunBubble')
   const yunBubbleTextEl = document.getElementById('yunBubbleText')
   const yunDotEl = document.getElementById('yunDot')
@@ -797,29 +806,21 @@
   // Check connection availability and show dot
   async function checkYunConnection () {
     setYunDot('pending')
-    yunReplyEl.textContent = '芸正在趕來…'
-    yunReplyEl.classList.remove('error')
+    yunColTextEl.innerHTML = ''
 
     if (yunBackend === 'openrouter') {
       const key = document.getElementById('openRouterKeyInput').value
-      if (!key) {
-        setYunDot('hidden')
-        yunReplyEl.textContent = ''
-        return
-      }
+      if (!key) { setYunDot('hidden'); return }
       setYunDot('connected')
-      yunReplyEl.textContent = ''
     } else {
       const projectDir = document.getElementById('projectDirInput').value
-      if (!projectDir) { setYunDot('hidden'); yunReplyEl.textContent = ''; return }
+      if (!projectDir) { setYunDot('hidden'); return }
       const result = await window.electron.yun.checkCli()
       if (result.ok) {
         setYunDot('connected')
-        yunReplyEl.textContent = ''
       } else {
         setYunDot('error')
-        yunReplyEl.textContent = '芸暫時離開了'
-        yunReplyEl.classList.add('error')
+        yunColTextEl.textContent = '芸暫時離開了'
         yunBubbleTextEl.textContent = '找不到 Claude CLI — 請確認已安裝'
       }
     }
@@ -836,7 +837,13 @@
   // Listen for streaming chunks from main process
   window.electron.yun.onChunk((text) => {
     yunFullText += text
-    yunReplyEl.textContent = yunFullText
+    // Append each character with ink-appear animation
+    for (const ch of text) {
+      const span = document.createElement('span')
+      span.className = 'yun-col-char'
+      span.textContent = ch
+      yunColTextEl.appendChild(span)
+    }
     yunBubbleTextEl.textContent = yunFullText
   })
 
@@ -844,18 +851,16 @@
   window.electron.yun.onDone((result) => {
     yunIsStreaming = false
     if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
-    yunReplyEl.classList.remove('streaming')
+    yunColTextEl.classList.remove('streaming')
 
     if (result.ok && yunFullText) {
       setYunDot('connected')
-      // Store in history (keep last 10)
       yunReplyHistory.push(yunFullText)
       if (yunReplyHistory.length > 10) yunReplyHistory.shift()
     } else if (!result.ok) {
       setYunDot('error')
-      yunReplyEl.textContent = '芸暫時離開了'
-      yunReplyEl.classList.add('error')
-      yunBubbleTextEl.textContent = result.error || '無法連接 Claude CLI'
+      yunColTextEl.textContent = '芸暫時離開了'
+      yunBubbleTextEl.textContent = result.error || '無法連接'
     }
 
     // Process queued request if any
@@ -866,13 +871,14 @@
   })
 
   // Hover to show full bubble
-  yunReplyEl.addEventListener('mouseenter', () => {
-    if (yunReplyEl.textContent && yunReplyEl.textContent !== '') {
+  // Hover on yun column to show full reply bubble
+  yunColTextEl.addEventListener('mouseenter', () => {
+    if (yunColTextEl.textContent && yunColTextEl.textContent !== '') {
       yunBubbleEl.classList.remove('hidden')
     }
   })
 
-  yunReplyEl.addEventListener('mouseleave', () => {
+  yunColTextEl.addEventListener('mouseleave', () => {
     setTimeout(() => {
       if (!yunBubbleEl.matches(':hover')) {
         yunBubbleEl.classList.add('hidden')
@@ -949,9 +955,9 @@ ${historyText}
     // Start streaming
     yunIsStreaming = true
     yunFullText = ''
+    yunColTextEl.innerHTML = ''
+    yunColTextEl.classList.add('streaming')
     yunReplyEl.textContent = ''
-    yunReplyEl.classList.remove('error')
-    yunReplyEl.classList.add('streaming')
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
 
@@ -960,11 +966,10 @@ ${historyText}
     yunStreamingTimeout = setTimeout(() => {
       if (yunIsStreaming) {
         yunIsStreaming = false
-        yunReplyEl.classList.remove('streaming')
+        yunColTextEl.classList.remove('streaming')
         setYunDot('error')
         if (!yunFullText) {
-          yunReplyEl.textContent = '芸暫時離開了'
-          yunReplyEl.classList.add('error')
+          yunColTextEl.textContent = '芸暫時離開了'
         }
       }
     }, 60000)

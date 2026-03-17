@@ -135,6 +135,20 @@ body {
   min-width: 0;
   height: 100vh;
   overflow: hidden;
+  position: relative;
+}
+
+/* Top drag region — enables window dragging across entire top 30px.
+   z-index below annotation toolbar (500) so toolbar stays clickable. */
+.content-col::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  -webkit-app-region: drag;
+  z-index: 5;
 }
 
 /* ─── Buttons ──────────────────────────────────────── */
@@ -493,9 +507,9 @@ body {
 }
 
 .annotation-gallery img {
-  width: 88px;
-  height: 88px;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
   border-radius: 5px;
   border: 1px solid var(--border-light);
   cursor: pointer;
@@ -740,37 +754,6 @@ input[type="range"].style-slider:disabled {
   50% { opacity: 0.4; }
 }
 
-.yun-reply {
-  flex: 1;
-  text-align: right;
-  font-size: 12px;
-  color: var(--ink-muted);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 50%;
-  cursor: default;
-  min-height: 1em;
-  font-style: italic;
-}
-
-.yun-reply:empty { display: none; }
-
-.yun-reply.streaming {
-  border-right: 2px solid var(--ink-muted);
-  animation: yunCursor 0.6s step-end infinite;
-  padding-right: 4px;
-}
-
-@keyframes yunCursor {
-  50% { border-color: transparent; }
-}
-
-.yun-reply.error {
-  color: var(--ink-faint);
-  font-style: italic;
-}
 
 /* Yun bubble (hover to expand full reply) — fixed to escape parent overflow:hidden */
 .yun-bubble {
