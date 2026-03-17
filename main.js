@@ -5,13 +5,15 @@ const fs = require('fs')
 
 let mainWindow
 
+const isMac = process.platform === 'darwin'
+const isWin = process.platform === 'win32'
+
 function createWindow () {
-  mainWindow = new BrowserWindow({
+  const winOptions = {
     width: 1400,
     height: 900,
     minWidth: 480,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
     backgroundColor: '#f0ebe0',
     show: false,
     webPreferences: {
@@ -20,7 +22,21 @@ function createWindow () {
       nodeIntegration: false,
       webSecurity: false // allow loading local file:// images
     }
-  })
+  }
+
+  if (isMac) {
+    winOptions.titleBarStyle = 'hiddenInset'
+  } else {
+    // Windows / Linux: frameless with custom drag region
+    winOptions.titleBarStyle = 'hidden'
+    winOptions.titleBarOverlay = {
+      color: '#f0ebe0',
+      symbolColor: '#7a6a58',
+      height: 30
+    }
+  }
+
+  mainWindow = new BrowserWindow(winOptions)
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'))
 
@@ -197,11 +213,14 @@ ipcMain.handle('config:write', async (_, config) => {
 ipcMain.handle('app:getDataPath', () => app.getPath('userData'))
 
 ipcMain.handle('shell:showInFinder', async (_, filePath) => {
-  // Use macOS native `open -R` which reliably reveals files in Finder,
-  // even for paths with special characters that shell.showItemInFolder may struggle with
-  execFile('open', ['-R', filePath], (err) => {
-    if (err) console.error('[showInFinder] failed:', err.message)
-  })
+  if (isMac) {
+    execFile('open', ['-R', filePath], (err) => {
+      if (err) console.error('[showInFinder] failed:', err.message)
+    })
+  } else {
+    const { shell } = require('electron')
+    shell.showItemInFolder(filePath)
+  }
 })
 
 // ─── Apple Notes Export ───────────────────────────────────────────
@@ -219,12 +238,18 @@ async function findClaudeBin () {
   if (resolvedClaudeBin) return resolvedClaudeBin
 
   // 1. Try common known locations first (fastest, no shell spawn)
-  const home = process.env.HOME || ''
-  const candidates = [
-    home + '/.local/bin/claude',
-    '/usr/local/bin/claude',
-    '/opt/homebrew/bin/claude'
-  ]
+  const home = process.env.HOME || process.env.USERPROFILE || ''
+  const candidates = isWin
+    ? [
+        path.join(home, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+        path.join(home, 'AppData', 'Roaming', 'npm', 'claude'),
+        path.join(home, '.local', 'bin', 'claude'),
+      ]
+    : [
+        home + '/.local/bin/claude',
+        '/usr/local/bin/claude',
+        '/opt/homebrew/bin/claude'
+      ]
   for (const p of candidates) {
     if (fs.existsSync(p)) {
       resolvedClaudeBin = p
@@ -233,17 +258,21 @@ async function findClaudeBin () {
     }
   }
 
-  // 2. Fallback: ask login shell
-  const userShell = process.env.SHELL || '/bin/zsh'
+  // 2. Fallback: ask shell for full path
+  const whichCmd = isWin ? 'where' : 'which'
+  const shellArgs = isWin
+    ? [whichCmd, ['claude']]
+    : [process.env.SHELL || '/bin/zsh', ['-lc', 'which claude']]
+
   return new Promise((resolve) => {
-    execFile(userShell, ['-lc', 'which claude'], { timeout: 5000 }, (err, stdout) => {
-      const bin = (stdout || '').trim()
+    execFile(shellArgs[0], shellArgs[1], { timeout: 5000 }, (err, stdout) => {
+      const bin = (stdout || '').split('\n')[0].trim()
       if (!err && bin && fs.existsSync(bin)) {
         resolvedClaudeBin = bin
-        console.log('[yun] Resolved claude CLI via shell:', bin)
+        console.log('[yun] Resolved claude CLI:', bin)
         resolve(bin)
       } else {
-        console.log('[yun] claude CLI not found. err:', err?.message, 'stdout:', stdout)
+        console.log('[yun] claude CLI not found. err:', err?.message)
         resolve(null)
       }
     })
@@ -274,6 +303,73 @@ ipcMain.handle('yun:readSoul', async (_, dirPath) => {
   } catch (err) {
     return { ok: false, error: err.message }
   }
+})
+
+// ─── Yun Sync (non-streaming, for inline selection queries) ─────────
+
+ipcMain.handle('yun:askSync', async (event, prompt, cwd) => {
+  const claudeBin = await findClaudeBin()
+  if (!claudeBin) return { ok: false, error: '找不到 claude CLI' }
+
+  return new Promise((resolve) => {
+    try {
+      const proc = spawn(claudeBin, ['-p', '--output-format', 'text', '--max-turns', '1'], {
+        cwd,
+        env: { ...process.env },
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+      proc.stdin.write(prompt)
+      proc.stdin.end()
+
+      let fullText = ''
+      proc.stdout.on('data', (d) => { fullText += d.toString() })
+      proc.stderr.on('data', () => {})
+      proc.on('close', (code) => resolve({ ok: code === 0, fullText }))
+      proc.on('error', (err) => resolve({ ok: false, error: err.message }))
+    } catch (err) {
+      resolve({ ok: false, error: err.message })
+    }
+  })
+})
+
+ipcMain.handle('yun:openrouterSync', async (event, apiKey, model, prompt) => {
+  const https = require('https')
+
+  const body = JSON.stringify({
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 500
+  })
+
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: 'openrouter.ai',
+      path: '/api/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://rainote.netlify.app',
+        'X-Title': 'RaiNote'
+      }
+    }, (res) => {
+      let data = ''
+      res.on('data', (d) => { data += d })
+      res.on('end', () => {
+        try {
+          const obj = JSON.parse(data)
+          const text = obj.choices?.[0]?.message?.content || ''
+          resolve({ ok: res.statusCode === 200, fullText: text })
+        } catch {
+          resolve({ ok: false, error: 'Parse error' })
+        }
+      })
+    })
+
+    req.on('error', (err) => resolve({ ok: false, error: err.message }))
+    req.write(body)
+    req.end()
+  })
 })
 
 // Spawn claude CLI and stream response
@@ -421,6 +517,9 @@ ipcMain.handle('yun:openrouter', async (event, apiKey, model, prompt) => {
 })
 
 ipcMain.handle('apple:createNote', async (_, title, htmlBody) => {
+  if (!isMac) {
+    return { ok: false, error: 'Apple Notes 仅在 macOS 上可用' }
+  }
   // Escape for AppleScript double-quoted string: backslashes first, then quotes
   const esc = (s) => s
     .replace(/\\/g, '\\\\')

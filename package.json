@@ -8,6 +8,8 @@
     "dev": "electron . --enable-logging",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
     "postinstall": "node scripts/patch-osx-sign.js"
   },
   "devDependencies": {
@@ -42,6 +44,16 @@
       "target": [
         { "target": "dmg", "arch": ["arm64"] }
       ]
+    },
+    "win": {
+      "icon": "build/icon-256.png",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     },
     "dmg": {
       "title": "RaiNote",

@@ -604,6 +604,29 @@ body {
 
 .annotation-toolbar button:hover { opacity: 1; background: rgba(255,255,255,0.1); }
 
+/* "問芸" button — distinct accent style */
+#askYunBtn {
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: #f0ebe0;
+  opacity: 1;
+}
+#askYunBtn:hover { background: rgba(255,255,255,0.15); }
+#askYunBtn.yun-loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Separator between toolbar buttons */
+.annotation-toolbar-sep {
+  width: 1px;
+  height: 14px;
+  background: rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
 /* ─── Annotation Preview ───────────────────────────── */
 .annotation-preview {
   position: fixed;
