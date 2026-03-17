@@ -11,6 +11,21 @@
 
 <!-- ─── Sidebar ─────────────────────────────────────── -->
 <aside id="sidebar" class="sidebar collapsed">
+  <!-- iOS sidebar top row (hidden on desktop via CSS) -->
+  <div class="ios-sidebar-top">
+    <button id="iosSidebarBack" class="ios-sidebar-back" onclick="Sidebar.toggle()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M8 1L3 6l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      返回
+    </button>
+    <button class="ios-sidebar-settings" onclick="Sidebar.toggle();document.getElementById('settingsOverlay').classList.remove('hidden')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.54 11.54l1.41 1.41M3.05 12.95l1.42-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
   <div class="sidebar-header">
     <button id="newNoteBtn" class="btn-icon" title="新建笔记">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -93,6 +108,16 @@
 
   <!-- ─── Content Column ────────────────────────────── -->
   <div class="content-col">
+
+    <!-- iOS top nav bar (hidden on desktop) -->
+    <div class="ios-nav-bar">
+      <button class="ios-nav-btn" id="iosNavList" onclick="Sidebar.toggle()">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <span class="ios-yun-msg" id="iosYunMsg"></span>
+    </div>
 
     <!-- Editor Area -->
     <section id="editorArea" class="editor-area" data-layout="single">

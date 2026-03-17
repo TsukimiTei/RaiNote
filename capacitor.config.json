@@ -1,0 +1,20 @@
+{
+  "appId": "com.rainote.app",
+  "appName": "RaiNote",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#f0ebe0"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "none",
+      "scrollPadding": false
+    }
+  }
+}
