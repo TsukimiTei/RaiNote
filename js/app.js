@@ -88,9 +88,9 @@
 
       updateCreateTime(currentNote.meta?.created)
 
-      // Reset to page 1 and set up CSS columns after content loads
+      // Reset scroll to right edge (document start) and set up height
       requestAnimationFrame(() => {
-        editorPage = 0
+        editorScrollEl.scrollLeft = 0
         setupEditorColumns()
       })
 
@@ -165,135 +165,42 @@
     }
   })
 
-  // ─── Editor pagination (iBooks-style CSS columns + translateX) ──
+  // ─── Editor horizontal scroll (横向卷轴) ──────────
   //
-  // Geometry (writing-mode: vertical-rl):
-  //   • editor is position:absolute; right:0 → first column anchors to right
-  //   • CSS column-width (set by setupEditorColumns) splits content into pages
-  //   • column 1 = rightmost = document start
-  //   • translateX(+n * pageW) shifts editor right, revealing column n+1
-  //
-  // Math verification:
-  //   translateX(0)    → sees [containerLeft … containerRight]  = column 1 ✓
-  //   translateX(+pageW) → column 1 moves off-screen right, column 2 enters ✓
+  // writing-mode: vertical-rl 下内容自然向左延伸，
+  // .editor-scroll overflow-x: auto 提供原生横向滚动。
+  // 打字时自动将光标滚入可见区域。
 
   const editorScrollEl = document.querySelector('.editor-scroll')
-  const editNavNextBtn = document.getElementById('editNavNext')
-  const editNavPrevBtn = document.getElementById('editNavPrev')
-  const editPageNumEl  = document.getElementById('editPageNum')
-  const editPageTotEl  = document.getElementById('editPageTot')
 
-  let editorPage = 0
-
-  // Gap (px) between page columns — creates visible separation during page turns
-  const COLUMN_GAP = 100
-
-  // Set CSS column-width on the editor element based on current layout
+  // 设置编辑器高度（适配容器）
   function setupEditorColumns () {
     const editorEl = document.getElementById('editor')
-    const scrollEl = editorScrollEl
-    const h  = scrollEl.clientHeight
-    const w  = scrollEl.clientWidth
-    if (!w || !h) return
-
-    // Single page: one column = full width, with COLUMN_GAP between pages
-    // Double page: two columns visible (each = half width), no gap needed (spine line handles it)
-    const colW = isDoubleLayout ? Math.floor(w / 2) : w
-    const gap  = isDoubleLayout ? 0 : COLUMN_GAP
-
-    editorEl.style.height             = h + 'px'
-    editorEl.style.columnWidth        = colW + 'px'
-    editorEl.style.webkitColumnWidth  = colW + 'px'
-    editorEl.style.columnGap          = gap + 'px'
-    editorEl.style.webkitColumnGap    = gap + 'px'
-
-    // Clamp current page after re-layout
-    setEditorPage(editorPage, false)
+    const h = editorScrollEl.clientHeight
+    if (h) editorEl.style.minHeight = h + 'px'
     updateColLineStepEditor()
   }
 
-  // Stride: distance between page positions (column width + gap between them)
-  function getEditorStride () {
-    const w = editorScrollEl.clientWidth
-    return isDoubleLayout ? w : w + COLUMN_GAP
-  }
-
-  // Total pages (spreads): (editor total width + gap) ÷ stride
-  function getEditorTotalPages () {
-    const editorEl = document.getElementById('editor')
-    const stride = getEditorStride()
-    if (!stride) return 1
-    const gap = isDoubleLayout ? 0 : COLUMN_GAP
-    return Math.max(1, Math.ceil((editorEl.offsetWidth + gap) / stride))
-  }
-
-  // Navigate to page n (0-indexed). animate=false for instant jump (cursor following)
-  function setEditorPage (n, animate = true) {
-    const total    = getEditorTotalPages()
-    editorPage     = Math.max(0, Math.min(n, total - 1))
-    const stride   = getEditorStride()
-    const editorEl = document.getElementById('editor')
-
-    editorEl.style.transition = animate
-      ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-      : 'none'
-    editorEl.style.transform = `translateX(${editorPage * stride}px)`
-
-    updateEditNav()
-  }
-
-  function updateEditNav () {
-    const total = getEditorTotalPages()
-    editPageNumEl.textContent  = editorPage + 1
-    editPageTotEl.textContent  = total
-    editNavPrevBtn.disabled    = editorPage <= 0
-    editNavNextBtn.disabled    = editorPage >= total - 1
-    // Hide all page nav when only 1 page (use class to avoid conflicting with CSS)
-    const edArea = document.getElementById('editorArea')
-    edArea.classList.toggle('single-page', total <= 1)
-  }
-
-  // When user types, follow cursor to its page (no animation)
+  // 打字时，让光标自动滚入可见区域
   function followCursor () {
     const sel = window.getSelection()
-    if (!sel || !sel.rangeCount) { updateEditNav(); return }
-    const cursorRect    = sel.getRangeAt(0).getBoundingClientRect()
-    if (!cursorRect.width && !cursorRect.height) { updateEditNav(); return }
+    if (!sel || !sel.rangeCount) return
+    const cursorRect = sel.getRangeAt(0).getBoundingClientRect()
+    if (!cursorRect.width && !cursorRect.height) return
 
     const containerRect = editorScrollEl.getBoundingClientRect()
-    // Is cursor already in the visible viewport?
-    if (cursorRect.left >= containerRect.left && cursorRect.right <= containerRect.right + 4) {
-      updateEditNav()
-      return
-    }
+    const margin = 40  // 留一点边距
 
-    // Cursor distance from editor's right edge (getBoundingClientRect includes current transform)
-    const editorRight  = document.getElementById('editor').getBoundingClientRect().right
-    const distFromRight = editorRight - cursorRect.left
-    const stride = getEditorStride()
-    const targetPage   = Math.max(0, Math.floor(distFromRight / stride))
-    setEditorPage(targetPage, false)
+    if (cursorRect.left < containerRect.left + margin) {
+      // 光标在左侧看不见 → 向左滚
+      editorScrollEl.scrollBy({ left: cursorRect.left - containerRect.left - margin, behavior: 'smooth' })
+    } else if (cursorRect.right > containerRect.right - margin) {
+      // 光标在右侧看不见 → 向右滚
+      editorScrollEl.scrollBy({ left: cursorRect.right - containerRect.right + margin, behavior: 'smooth' })
+    }
   }
 
-  editNavNextBtn.addEventListener('click', () => setEditorPage(editorPage + 1, true))
-  editNavPrevBtn.addEventListener('click', () => setEditorPage(editorPage - 1, true))
-
-  // 用 JS mouseenter/mouseleave 控制按钮显隐（CSS :hover 在含 contain/isolation 的子树内不可靠）
-  const editorAreaEl = document.getElementById('editorArea')
-  editorAreaEl.addEventListener('mouseenter', () => editorAreaEl.classList.add('nav-visible'))
-  editorAreaEl.addEventListener('mouseleave', () => editorAreaEl.classList.remove('nav-visible'))
-
-  // Keyboard navigation (when not typing in editor/title)
-  document.addEventListener('keydown', e => {
-    if (document.getElementById('editorArea').classList.contains('hidden')) return
-    const active = document.activeElement
-    if (active === document.getElementById('editor')) return
-    if (active === document.getElementById('noteTitle')) return
-    if (e.key === 'ArrowLeft')  { e.preventDefault(); setEditorPage(editorPage + 1, true) }
-    if (e.key === 'ArrowRight') { e.preventDefault(); setEditorPage(editorPage - 1, true) }
-  })
-
-  // Recalculate columns on resize (sidebar close is handled by handleResize below)
+  // Recalculate on resize
   window.addEventListener('resize', setupEditorColumns)
 
   // ─── Mode switching ──────────────────────────────
@@ -347,8 +254,6 @@
     if (currentMode === 'read') {
       Reader.setLayout(double)
     } else {
-      // Re-calculate column width for new layout
-      editorPage = 0
       setupEditorColumns()
     }
   }
