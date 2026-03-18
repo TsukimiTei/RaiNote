@@ -173,11 +173,7 @@
 
   const editorScrollEl = document.querySelector('.editor-scroll')
 
-  // 设置编辑器高度（适配容器）
   function setupEditorColumns () {
-    const editorEl = document.getElementById('editor')
-    const h = editorScrollEl.clientHeight
-    if (h) editorEl.style.minHeight = h + 'px'
     updateColLineStepEditor()
   }
 

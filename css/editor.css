@@ -154,10 +154,8 @@
   flex: 1;
   overflow-x: auto;          /* 横向卷轴：自由滚动 */
   overflow-y: hidden;
-  display: flex;
-  align-items: stretch;
+  direction: rtl;            /* 滚动起点在右侧 = 文档开头（vertical-rl 首列在右） */
   padding: 0;
-  /* 滚动条在竖排编辑器底部，保持纤细不干扰 */
   scrollbar-width: thin;
   scrollbar-color: var(--ink-faint) transparent;
 }
@@ -176,12 +174,13 @@
   background: var(--ink-muted);
 }
 
-/* 宣纸页面框 — 横向卷轴模式：不裁切，内容自然延伸 */
+/* 宣纸页面框 — 横向卷轴模式 */
 .page-frame {
-  min-width: 100%;         /* 至少撑满视口，内容多时自然更宽 */
-  width: max-content;      /* 让内容撑开宽度 */
-  min-height: 0;
-  position: relative;    /* anchor for absolute editor + divider */
+  direction: ltr;          /* 重置方向，内容正常排列 */
+  height: 100%;
+  min-width: 100%;         /* 至少撑满视口 */
+  width: max-content;      /* 内容多时自然撑宽 */
+  position: relative;
   background: var(--paper-light);
   border-top: none;
   border-bottom: none;
@@ -190,8 +189,7 @@
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.4);
   overflow: visible;
-  /* 宣纸纹理：列线（上层，可选）+ SVG 纤维纹理（下层）
-     列线从右边缘对齐，background-size 宽度 = 一列字宽（由 JS 设置 --col-line-step-editor） */
+  /* 宣纸纹理 */
   background-image:    var(--col-line-editor, none), var(--paper-texture);
   background-size:     var(--col-line-step-editor, 34px) 100%, 300px 300px;
   background-position: right var(--col-line-offset-editor, 52px) center, left 0;
@@ -217,16 +215,10 @@
   z-index: 2;
 }
 
-/* ─── Vertical Editor Core ─────────────────────────── */
+/* ─── Vertical Editor Core (横向卷轴) ─────────────── */
 /*
- * iBooks / Kindle 分页方案：
- *   - position: absolute; right: 0  → 锚定右侧，首列在右（= 文档开头）
- *   - CSS column-width（由 JS 动态设置）→ 浏览器自动把内容分成等宽列
- *   - column-fill: auto             → 按序填充列（不平衡）
- *   - overflow: visible             → 列向左延伸，被 .page-frame overflow:hidden 裁切
- *   - 翻页 = translateX(+n * pageW) → 向右移动，把左侧的列移入可见区
- *
- * 不加 direction: rtl —— 否则 inline 方向变为从下到上，导致文字从底部开始。
+ * writing-mode: vertical-rl 下，文字从上到下、列从右到左排列。
+ * 固定 height → 文字到底后自动换列向左延伸 → 父容器横向滚动。
  */
 .editor {
   writing-mode: vertical-rl;
@@ -240,11 +232,9 @@
 
   padding: 48px 52px;
 
-  /* 横向卷轴：不用 absolute，不用 column 分页，自然流式布局 */
-  position: relative;
+  /* 固定高度（inline size），内容超出后自动产生新列 → 宽度自然增长 */
+  height: 100%;
   min-width: 100%;
-  width: max-content;  /* 内容多时自动变宽 */
-  min-height: 100%;
 
   outline: none;
   caret-color: var(--accent);
