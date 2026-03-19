@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>RaiNote</title>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/editor.css">
+  <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="css/ios.css">
+</head>
+<body>
+
+<!-- ─── Sidebar ─────────────────────────────────────── -->
+<aside id="sidebar" class="sidebar collapsed">
+  <!-- iOS sidebar top row (hidden on desktop via CSS) -->
+  <div class="ios-sidebar-top">
+    <button id="iosSidebarBack" class="ios-sidebar-back" onclick="Sidebar.toggle()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M8 1L3 6l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      返回
+    </button>
+    <button class="ios-sidebar-settings" onclick="Sidebar.toggle();document.getElementById('settingsOverlay').classList.remove('hidden')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.54 11.54l1.41 1.41M3.05 12.95l1.42-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <div class="sidebar-header">
+    <button id="newNoteBtn" class="btn-icon" title="新建笔记">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <input id="searchInput" class="search-input" type="text" placeholder="搜索笔记…">
+  </div>
+  <div id="fileList" class="file-list"></div>
+</aside>
+
+<!-- ─── Main Content ─────────────────────────────────── -->
+<main id="mainContent" class="main-content">
+
+  <!-- ─── Vertical Toolbar ─────────────────────────── -->
+  <nav class="vtoolbar">
+    <!-- Traffic lights drag spacer -->
+    <div class="vt-drag-spacer"></div>
+
+    <!-- Sidebar toggle -->
+    <button id="sidebarToggle" class="vt-btn" title="文件列表">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- New note -->
+    <button id="quickNewNoteBtn" class="vt-btn" title="新建筆記">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <div class="vt-sep"></div>
+
+    <!-- Detail info -->
+    <button id="detailBtn" class="vt-btn" title="文檔信息">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M8 7v5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="8" cy="5" r="0.9" fill="currentColor"/>
+      </svg>
+    </button>
+
+    <!-- Spacer pushes settings to bottom -->
+    <div class="vt-spacer"></div>
+
+    <!-- Settings -->
+    <button id="settingsBtn" class="vt-btn" title="設置">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.54 11.54l1.41 1.41M3.05 12.95l1.42-1.41M11.54 4.46l1.41-1.41"
+              stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- ─── Content Column ────────────────────────────── -->
+  <div class="content-col">
+
+    <!-- iOS top nav bar (hidden on desktop) -->
+    <div class="ios-nav-bar">
+      <button class="ios-nav-btn" id="iosNavList" onclick="Sidebar.toggle()">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <span class="ios-yun-msg" id="iosYunMsg"></span>
+    </div>
+
+    <!-- Editor Area -->
+    <section id="editorArea" class="editor-area" data-layout="single">
+
+      <div class="editor-scroll">
+        <div class="page-frame">
+          <div id="noteTitle"
+               class="note-title-center"
+               contenteditable="plaintext-only"
+               spellcheck="false"
+               data-placeholder="無題"></div>
+          <div id="editorPlaceholder" class="editor-placeholder">在此寫下今日所思…</div>
+          <div id="editor"
+               class="editor"
+               contenteditable="true"
+               spellcheck="false"></div>
+        </div>
+      </div>
+
+      <!-- Yun column -->
+      <div class="yun-col" id="yunCol">
+        <span id="yunDot" class="yun-dot yun-col-dot"></span>
+        <div id="yunColText" class="yun-col-text"></div>
+        <button id="sendToNotesBtn" class="send-notes-btn" title="发送到 Apple Notes">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 9V2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M4 5l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M1 10v3h12v-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <span id="saveStatus" class="save-status">已儲存</span>
+      <span id="createTimeLabel" class="create-time"></span>
+    </footer>
+
+    <!-- Yun reply bubble -->
+    <div id="yunBubble" class="yun-bubble hidden">
+      <div id="yunBubbleText" class="yun-bubble-text"></div>
+    </div>
+
+  </div><!-- .content-col -->
+
+</main>
+
+<!-- ─── Detail Popover ────────────────────────────────── -->
+<div id="detailPopover" class="detail-popover hidden">
+  <div class="detail-row">
+    <span class="detail-label">創建</span>
+    <span id="dpCreated" class="detail-val">—</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">修改</span>
+    <span id="dpUpdated" class="detail-val">—</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">字數</span>
+    <span id="dpWordCount" class="detail-val">—</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">時長</span>
+    <span id="dpWriteTime" class="detail-val">—</span>
+  </div>
+  <div class="detail-sep"></div>
+  <button id="popoverExportBtn" class="detail-action">導出到 Apple Notes</button>
+</div>
+
+<!-- ─── Annotation Toolbar (selection actions) ────────── -->
+<div id="annotationToolbar" class="annotation-toolbar hidden">
+  <button id="askYunBtn" title="問芸">
+    芸
+  </button>
+  <span class="annotation-toolbar-sep"></span>
+  <button id="addAnnotationBtn" title="添加圖片">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M1 9l3-3 3 3 2-2 4 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="4.5" cy="6" r="1" fill="currentColor"/>
+    </svg>
+    標注
+  </button>
+</div>
+
+<!-- ─── Annotation Image Preview ─────────────────────── -->
+<div id="annotationPreview" class="annotation-preview hidden">
+  <div id="annotationGallery" class="annotation-gallery"></div>
+</div>
+
+<!-- ─── Settings Modal ───────────────────────────────── -->
+<div id="settingsOverlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>設置</h2>
+      <button id="closeSettingsBtn" class="btn-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="setting-group">
+        <label class="setting-label">笔記目錄（Obsidian Vault）</label>
+        <div class="setting-row">
+          <input id="vaultPathInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
+          <button id="selectVaultBtn" class="btn-secondary">選擇</button>
+        </div>
+        <p class="setting-hint">筆記以 Markdown 格式存入此目錄，已有文檔會按日期自動歸入列表</p>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">字體</label>
+        <div class="setting-row">
+          <button class="font-choice active" data-font="kaiti">楷體</button>
+          <button class="font-choice" data-font="songti">宋體</button>
+        </div>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">主題</label>
+        <div class="setting-row theme-row">
+          <button class="theme-choice active" data-theme="xuanzhi" title="宣紙">
+            <span class="theme-swatch" style="background:#f0ebe0;border-color:#c8b898"></span>宣紙
+          </button>
+          <button class="theme-choice" data-theme="yuebai" title="月白">
+            <span class="theme-swatch" style="background:#edf2f4;border-color:#b0bec5"></span>月白
+          </button>
+          <button class="theme-choice" data-theme="songyan" title="松煙">
+            <span class="theme-swatch" style="background:#1e1e1e;border-color:#444"></span>松煙
+          </button>
+          <button class="theme-choice" data-theme="tengzi" title="藤紫">
+            <span class="theme-swatch" style="background:#f0ecf5;border-color:#c4b5d0"></span>藤紫
+          </button>
+          <button class="theme-choice" data-theme="qingzhu" title="青竹">
+            <span class="theme-swatch" style="background:#e8efe8;border-color:#a8c8a8"></span>青竹
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-section">
+        <div class="setting-section-title">樣式</div>
+        <div class="setting-group">
+          <div class="setting-slider-row">
+            <div class="setting-slider-header">
+              <span class="setting-slider-label">宣紙紋理強度</span>
+              <span class="setting-slider-val" id="textureVal">6</span>
+            </div>
+            <input type="range" id="textureSlider" class="style-slider"
+              min="0" max="10" step="1" value="6">
+          </div>
+        </div>
+        <div class="setting-group" style="margin-top:12px">
+          <div class="setting-row setting-row-between">
+            <span class="setting-slider-label">顯示列線</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="columnLinesToggle">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="setting-slider-row" style="margin-top:10px">
+            <div class="setting-slider-header">
+              <span class="setting-slider-label" style="color:var(--ink-muted)">列線濃度</span>
+              <span class="setting-slider-val" id="colLineVal">5</span>
+            </div>
+            <input type="range" id="colLineSlider" class="style-slider"
+              min="1" max="10" step="1" value="5">
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-section">
+        <div class="setting-section-title">芸</div>
+        <div class="setting-group">
+          <label class="setting-label">連接方式</label>
+          <div class="setting-row">
+            <button class="font-choice yun-backend-choice active" data-backend="cli">Claude CLI</button>
+            <button class="font-choice yun-backend-choice" data-backend="openrouter">OpenRouter</button>
+          </div>
+        </div>
+        <div id="yunCliSettings">
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">Claude CLI 路徑</label>
+            <div class="setting-row">
+              <input id="claudePathInput" type="text" class="setting-input" readonly placeholder="未檢測">
+              <button id="detectClaudeBtn" class="btn-secondary">檢測</button>
+            </div>
+            <p class="setting-hint" id="claudePathHint">點擊「檢測」自動尋找 claude CLI 安裝位置</p>
+          </div>
+        </div>
+        <div id="yunOpenRouterSettings" style="display:none">
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">API Key</label>
+            <div class="setting-row">
+              <input id="openRouterKeyInput" type="password" class="setting-input" placeholder="sk-or-…">
+            </div>
+            <p class="setting-hint">從 <a href="https://openrouter.ai/keys" style="color:var(--accent)">openrouter.ai/keys</a> 取得</p>
+          </div>
+          <div class="setting-group" style="margin-top:12px">
+            <label class="setting-label">模型</label>
+            <div class="setting-row">
+              <select id="openRouterModelSelect" class="setting-input">
+                <option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option>
+                <option value="anthropic/claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                <option value="anthropic/claude-haiku-4-5">Claude Haiku 4.5</option>
+                <option value="openai/gpt-5.4">GPT-5.4</option>
+                <option value="openai/gpt-4o">GPT-4o</option>
+                <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="deepseek/deepseek-chat-v3">DeepSeek V3</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/capacitor-shim.js"></script>
+<!-- Scripts -->
+<script src="js/storage.js"></script>
+<script src="js/markdown.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

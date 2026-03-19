@@ -1,0 +1,325 @@
+/* ═══════════════════════════════════════════════════════
+   RaiNote — 竖排编辑器样式
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Editor Area ──────────────────────────────────── */
+.editor-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;      /* editor-scroll + note-title-col side by side */
+  align-items: stretch;
+  background: var(--rice-paper);
+  position: relative;       /* anchor for absolutely-positioned nav buttons */
+}
+
+/* ─── Note Title (first column in scroll flow) ──── */
+.note-title-center {
+  flex-shrink: 0;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-main);
+  font-size: 22px;
+  color: var(--ink-muted);
+  letter-spacing: 0.18em;
+  padding: 48px 8px;
+  text-align: center;
+  outline: none;
+  cursor: text;
+  user-select: text;
+  white-space: pre-wrap;
+  caret-color: var(--accent);
+  opacity: 0.75;
+  transition: opacity 0.2s, color 0.2s;
+  height: 100%;
+}
+
+.note-title-center:hover {
+  opacity: 0.9;
+}
+
+.note-title-center.editing {
+  opacity: 1;
+  color: var(--ink-2);
+  background: var(--paper-light);
+  border-radius: 4px;
+}
+
+.note-title-center:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  pointer-events: none;
+  font-style: italic;
+}
+
+/* ─── Yun Column (vertical, rightmost) ─────────────── */
+.yun-col {
+  flex-shrink: 0;
+  width: 52px;
+  border-left: 1px solid var(--border-light);
+  background: var(--paper-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  padding-top: 44px;  /* 30px drag region + 14px visual spacing below traffic lights */
+}
+
+.yun-col-dot {
+  flex-shrink: 0;
+}
+
+.yun-col-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-main);
+  font-size: 15px;
+  color: var(--ink-muted);
+  letter-spacing: 0.12em;
+  line-height: 2;
+  padding: 16px 14px;
+  width: 100%;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  cursor: default;
+}
+
+.yun-col-text:empty::before {
+  content: '芸';
+  color: var(--ink-faint);
+  font-style: normal;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+}
+
+.yun-col-char {
+  display: inline;
+  opacity: 0;
+  filter: blur(4px);
+  animation: yunCharAppear 0.5s ease-out forwards;
+}
+
+@keyframes yunCharAppear {
+  0%   { opacity: 0; filter: blur(4px); }
+  40%  { opacity: 0.6; filter: blur(1px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+
+/* No blinking cursor bar — streaming state indicated by dot only */
+
+/* ─── Send to Apple Notes button ───────────────────── */
+.send-notes-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 14px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.send-notes-btn:hover {
+  background: var(--paper-shadow);
+  color: var(--accent);
+}
+
+.send-notes-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.send-notes-btn.sending svg {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.editor-scroll {
+  flex: 1;
+  overflow-x: auto;          /* 横向卷轴：自由滚动 */
+  overflow-y: hidden;
+  direction: rtl;            /* 滚动起点在右侧 = 文档开头（vertical-rl 首列在右） */
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-faint) transparent;
+}
+
+.editor-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.editor-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.editor-scroll::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border-radius: 3px;
+}
+.editor-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-muted);
+}
+
+/* 宣纸页面框 — 横向卷轴模式 */
+.page-frame {
+  direction: ltr;          /* 重置方向，内容正常排列 */
+  display: flex;
+  flex-direction: row-reverse;  /* 标题在右（DOM 第一个），编辑器在左 */
+  height: 100%;
+  min-width: 100%;         /* 至少撑满视口 */
+  width: max-content;      /* 内容多时自然撑宽 */
+  position: relative;
+  background: var(--paper-light);
+  border-top: none;
+  border-bottom: none;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.4);
+  overflow: visible;
+  /* 宣纸纹理 */
+  background-image:    var(--col-line-editor, none), var(--paper-texture);
+  background-size:     var(--col-line-step-editor, 34px) 100%, 300px 300px;
+  background-position: right var(--col-line-offset-editor, 52px) center, left 0;
+  background-repeat:   repeat-x, repeat;
+}
+
+/* ─── 双页模式：中间书脊线 ──────────────────────────── */
+.editor-area[data-layout="double"] .page-frame::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  bottom: 24px;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--border) 8%,
+    var(--border) 92%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ─── Vertical Editor Core (横向卷轴) ─────────────── */
+/*
+ * writing-mode: vertical-rl 下，文字从上到下、列从右到左排列。
+ * 固定 height → 文字到底后自动换列向左延伸 → 父容器横向滚动。
+ */
+.editor {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+
+  font-family: var(--font-main);
+  font-size: 18px;
+  line-height: 1.9;
+  color: var(--ink);
+  letter-spacing: 0.08em;
+
+  padding: 48px 52px;
+
+  /* 固定高度（inline size），内容超出后自动产生新列 → 宽度自然增长 */
+  height: 100%;
+  flex: 1 0 auto;
+
+  outline: none;
+  caret-color: var(--accent);
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* 占位文字 — 绝对定位覆盖在 page-frame 上 */
+.editor-placeholder {
+  position: absolute;
+  top: 0; right: 0;
+  width: 100%; height: 100%;
+  padding: 48px 52px;         /* 与 .editor 保持一致 */
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-main);
+  font-size: 18px;
+  line-height: 1.9;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  font-style: italic;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* 文字选中 */
+.editor ::selection {
+  background: var(--selection-bg);
+}
+
+/* ─── 行内 Markdown 样式 ─────────────────────────────── */
+.editor strong { font-weight: bold; }
+.editor em     { font-style: italic; }
+
+.editor [data-heading="1"] {
+  font-size: 1.35em;
+  letter-spacing: 0.15em;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 0.1em;
+  margin-bottom: 0.5em;
+}
+
+.editor [data-heading="2"] {
+  font-size: 1.15em;
+  letter-spacing: 0.12em;
+}
+
+.editor [data-heading="3"] {
+  font-size: 1.05em;
+  color: var(--ink-2);
+}
+
+/* ─── 图片标注标记（加粗显示，hover 出预览图）──────── */
+.annotated-text {
+  font-weight: bold;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.annotated-text:hover {
+  background: rgba(139, 96, 64, 0.1);
+  border-radius: 2px;
+}
+
+/* Small diamond hint after annotated text */
+.annotated-text::after {
+  content: '◆';
+  font-size: 0.4em;
+  color: var(--accent);
+  vertical-align: super;
+  margin-left: 0.05em;
+  font-weight: normal;
+}
+
+/* ─── Editor font variants ─────────────────────────── */
+body.font-songti .editor {
+  font-family: var(--font-songti);
+}
+
+/* Scrollbar hidden (overflow: hidden, no scrolling) */
+
+/* ─── Editor page navigation (hidden — 横向卷轴模式不需要翻页按钮) ── */
+.edit-nav-prev,
+.edit-nav-next,
+.edit-page-indicator {
+  display: none;
+}
