@@ -5,7 +5,6 @@
 
 const Storage = (() => {
   let vaultPath = null
-  let docFolderPath = null
 
   // ─── Frontmatter helpers ──────────────────────────
 
@@ -96,7 +95,6 @@ const Storage = (() => {
   async function init () {
     const config = await window.electron.config.read()
     vaultPath = config.vaultPath || null
-    docFolderPath = config.docFolder || null
 
     if (!vaultPath) {
       const dataPath = await window.electron.app.getDataPath()
@@ -105,7 +103,6 @@ const Storage = (() => {
   }
 
   function getVaultPath () { return vaultPath }
-  function getDocFolder () { return docFolderPath }
 
   async function setVaultPath (p) {
     vaultPath = p
@@ -114,31 +111,9 @@ const Storage = (() => {
     await window.electron.config.write(config)
   }
 
-  async function setDocFolder (p) {
-    docFolderPath = p
-    const config = await window.electron.config.read()
-    config.docFolder = p
-    await window.electron.config.write(config)
-  }
-
   async function listNotes () {
-    const results = []
-
-    // Primary vault
-    const vaultRes = await window.electron.fs.listFiles(vaultPath)
-    if (vaultRes.ok) results.push(...vaultRes.files)
-
-    // Additional doc folder (skip if same as vault)
-    if (docFolderPath && docFolderPath !== vaultPath) {
-      const docRes = await window.electron.fs.listFiles(docFolderPath)
-      if (docRes.ok) {
-        const existingPaths = new Set(results.map(f => f.path))
-        const newFiles = docRes.files.filter(f => !existingPaths.has(f.path))
-        results.push(...newFiles)
-      }
-    }
-
-    return results
+    const res = await window.electron.fs.listFiles(vaultPath)
+    return res.ok ? res.files : []
   }
 
   async function loadNote (filePath) {
@@ -223,7 +198,7 @@ const Storage = (() => {
   }
 
   return {
-    init, getVaultPath, setVaultPath, getDocFolder, setDocFolder,
+    init, getVaultPath, setVaultPath,
     listNotes, loadNote, saveNote, createNote, deleteNote, renameNote,
     todayFilename, countWords: countWordsPublic, filenameToTitle,
     extractDisplayTitle, buildNewFilename

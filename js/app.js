@@ -429,15 +429,7 @@
     await Sidebar.refresh()
   })
 
-  document.getElementById('selectProjectDirBtn').addEventListener('click', async () => {
-    const dir = await window.electron.dialog.openDirectory()
-    if (!dir) return
-    document.getElementById('projectDirInput').value = dir
-    await Storage.setDocFolder(dir)
-    await window.electron.fs.watch(dir)  // Watch for changes
-    await Sidebar.refresh()
-    checkYunConnection()
-  })
+  // (文档目录已合并到笔记目录)
 
   // ─── Yun backend toggle (CLI vs OpenRouter) ────
   let yunBackend = 'cli'
@@ -497,7 +489,6 @@
   async function openSettings () {
     document.getElementById('vaultPathInput').value = Storage.getVaultPath() || ''
     const config = await window.electron.config.read()
-    document.getElementById('projectDirInput').value = Storage.getDocFolder() || ''
     if (yunBackend === 'cli') {
       const cliResult = await window.electron.yun.checkCli()
       document.getElementById('claudePathInput').value = cliResult.ok ? cliResult.path : '未檢測'
@@ -643,11 +634,6 @@
     document.getElementById('colLineSlider').value = colLineLevel
     document.getElementById('colLineVal').textContent = colLineLevel
     applyColLineOpacity(colLineLevel)
-
-    if (config.docFolder) {
-      document.getElementById('projectDirInput').value = config.docFolder
-      await window.electron.fs.watch(config.docFolder)
-    }
 
     if (config.yunBackend) {
       yunBackend = config.yunBackend

@@ -200,7 +200,7 @@
           <input id="vaultPathInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
           <button id="selectVaultBtn" class="btn-secondary">選擇</button>
         </div>
-        <p class="setting-hint">笔記將以 Markdown 格式存入此目錄，可與 Obsidian 共享</p>
+        <p class="setting-hint">筆記以 Markdown 格式存入此目錄，已有文檔會按日期自動歸入列表</p>
       </div>
       <div class="setting-group">
         <label class="setting-label">字體</label>
@@ -277,16 +277,6 @@
             <button class="font-choice yun-backend-choice active" data-backend="cli">Claude CLI</button>
             <button class="font-choice yun-backend-choice" data-backend="openrouter">OpenRouter</button>
           </div>
-        </div>
-
-        <!-- 文檔目錄 -->
-        <div class="setting-group" style="margin-top:12px">
-          <label class="setting-label">文檔目錄</label>
-          <div class="setting-row">
-            <input id="projectDirInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
-            <button id="selectProjectDirBtn" class="btn-secondary">選擇</button>
-          </div>
-          <p class="setting-hint">選擇後自動讀取目錄中的文檔，按日期歸入文件列表</p>
         </div>
 
         <!-- Claude CLI 設置 -->
