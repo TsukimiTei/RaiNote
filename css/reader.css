@@ -1,212 +1,84 @@
 /* ═══════════════════════════════════════════════════════
-   RaiNote — 阅读模式 · 3D翻页动画
+   RaiNote — 阅读模式 · 横向卷轴
    ═══════════════════════════════════════════════════════ */
 
 /* ─── Reader Area ──────────────────────────────────── */
 .reader-area {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  flex-direction: row;
+  align-items: stretch;
   background: var(--rice-paper);
   position: relative;
   overflow: hidden;
 }
 
+/* ─── Scroll Container (横向卷轴) ──────────────────── */
 .reader-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  padding: 40px 80px;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  direction: rtl;            /* 滚动起点在右侧 = 文档开头（vertical-rl 首列在右） */
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-faint) transparent;
 }
 
-/* ─── Book Container ───────────────────────────────── */
+.reader-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.reader-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.reader-wrap::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border-radius: 3px;
+}
+.reader-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-muted);
+}
+
+/* ─── Book Frame (卷轴内容框) ──────────────────────── */
 .reader-book {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* 3D perspective for page flip */
-  perspective: 2400px;
-  perspective-origin: center center;
-
-  /* 书本阴影 */
-  filter: drop-shadow(0 16px 48px rgba(60, 30, 0, 0.2));
-}
-
-/* 单页模式 */
-.reader-book.single-page {
-  width: min(520px, 55vw);
-  height: min(720px, 80vh);
-}
-
-/* 双页模式 */
-.reader-book.double-page {
-  width: min(1020px, 88vw);
-  height: min(720px, 80vh);
-}
-
-/* 书脊线 (双页模式) */
-.reader-book.double-page::before {
-  content: '';
-  position: absolute;
-  top: 0; bottom: 0;
-  left: 50%;
-  width: 2px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    var(--border) 10%,
-    var(--border) 90%,
-    transparent
-  );
-  z-index: 10;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-/* ─── Page ─────────────────────────────────────────── */
-.r-page {
-  position: absolute;
-  top: 0;
-
-  width: 100%;
+  direction: ltr;            /* 重置方向，内容正常排列 */
   height: 100%;
-
+  min-width: 100%;           /* 至少撑满视口 */
+  width: max-content;        /* 内容多时自然撑宽 */
+  position: relative;
   background: var(--paper-light);
-  border: 1px solid var(--border);
-  border-radius: 2px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.4);
+  overflow: visible;
 
-  /* 竖排渲染（不加 direction: rtl，避免标点错位） */
+  /* 宣纸纹理 + 列线 */
+  background-image:    var(--col-line-reader, none), var(--paper-texture);
+  background-size:     var(--col-line-step-reader, 36px) 100%, 300px 300px;
+  background-position: right var(--col-line-offset-reader, 48px) center, left 0;
+  background-repeat:   repeat-x, repeat;
+}
+
+/* ─── Page Content (竖排长轴) ──────────────────────── */
+.r-page {
   writing-mode: vertical-rl;
   text-orientation: mixed;
 
   font-family: var(--font-main);
-  font-size: 18px; /* overridden by JS presets */
+  font-size: 18px;
   line-height: 2.0;
   color: var(--ink);
   letter-spacing: 0.06em;
 
   padding: 44px 48px;
-  overflow: hidden;
 
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-
-  background-image:    var(--col-line-reader, none), var(--paper-texture);
-  background-size:     var(--col-line-step-reader, 36px) 100%, 300px 300px;
-  background-position: right var(--col-line-offset-reader, 48px) center, left 0;
-  background-repeat:   repeat-x, repeat;
-}
-
-/* 双页：左页 */
-.reader-book.double-page .r-page {
-  width: 50%;
-}
-
-.reader-book.double-page .r-page-left {
-  left: 0;
-}
-
-.reader-book.double-page .r-page-right {
-  right: 0;
-}
-
-/* ─── Page 3D Flip Animation ──────────────────────── */
-
-/* 翻页容器 */
-.flip-wrapper {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  transform-style: preserve-3d;
-  z-index: 5;
-}
-
-.reader-book.double-page .flip-wrapper {
-  width: 50%;
-}
-
-/* 正面（可见内容） */
-.flip-wrapper .flip-front {
-  position: absolute;
-  inset: 0;
-
-  background: var(--paper-light);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  font-family: var(--font-main);
-  font-size: inherit;
-  line-height: inherit;
-  color: var(--ink);
-  letter-spacing: 0.06em;
-  padding: 44px 48px;
-  overflow: hidden;
-
-  backface-visibility: hidden;
-
-  background-image:    var(--col-line-reader, none), var(--paper-texture);
-  background-size:     var(--col-line-step-reader, 36px) 100%, 300px 300px;
-  background-position: right var(--col-line-offset-reader, 48px) center, left 0;
-  background-repeat:   repeat-x, repeat;
-}
-
-/* 背面（纸张背面） */
-.flip-wrapper .flip-back {
-  position: absolute;
-  inset: 0;
-  background-color: #ddd5c5;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-
-  backface-visibility: hidden;
-  transform: rotateY(180deg);
-
-  /* 背面：稍深的纸背色 + 宣纸纹理 */
-  background-image: var(--paper-texture);
-  background-size: 300px 300px;
-}
-
-/* 翻页：右页向左翻 (forward) */
-.flip-wrapper.flipping-forward {
-  animation: flipForward 0.65s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
-  transform-origin: left center;
-  z-index: 20;
-}
-
-/* 翻页：左页向右翻回 (backward) */
-.flip-wrapper.flipping-backward {
-  animation: flipBackward 0.65s cubic-bezier(0.32, 0.57, 0.35, 1) forwards;
-  transform-origin: right center;
-  z-index: 20;
-}
-
-@keyframes flipForward {
-  0%   { transform: rotateY(0deg);    }
-  40%  { transform: rotateY(-80deg);  }
-  100% { transform: rotateY(-180deg); }
-}
-
-@keyframes flipBackward {
-  0%   { transform: rotateY(-180deg); }
-  60%  { transform: rotateY(-100deg); }
-  100% { transform: rotateY(0deg);    }
-}
-
-/* 翻页时的页面阴影曲线 */
-.flip-wrapper.flipping-forward .flip-front {
-  box-shadow: inset -6px 0 20px rgba(0,0,0,0.1);
+  /* 固定高度，内容超出后自动产生新列 → 宽度自然增长 */
+  height: 100%;
+  min-width: 100%;
 }
 
 /* ─── Reader Markdown Styles ───────────────────────── */
-.r-page h1, .flip-front h1 {
+.r-page h1 {
   font-size: 1.35em;
   letter-spacing: 0.15em;
   border-bottom: 1px solid var(--border-light);
@@ -215,27 +87,27 @@
   color: var(--ink);
 }
 
-.r-page h2, .flip-front h2 {
+.r-page h2 {
   font-size: 1.15em;
   letter-spacing: 0.12em;
   color: var(--ink-2);
 }
 
-.r-page h3, .flip-front h3 {
+.r-page h3 {
   font-size: 1.05em;
   color: var(--ink-muted);
 }
 
-.r-page strong, .flip-front strong { font-weight: bold; }
-.r-page em,     .flip-front em     { font-style: italic; }
+.r-page strong { font-weight: bold; }
+.r-page em     { font-style: italic; }
 
-.r-page a, .flip-front a {
+.r-page a {
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.r-page img, .flip-front img {
+.r-page img {
   max-height: 120px;
   max-width: 80px;
   object-fit: contain;
@@ -245,68 +117,19 @@
 }
 
 /* 图片标注 (阅读模式) */
-.r-page .annotated-text,
-.flip-front .annotated-text {
+.r-page .annotated-text {
   border-bottom: 1.5px solid var(--accent);
   cursor: pointer;
 }
 
-.r-page .annotated-text:hover,
-.flip-front .annotated-text:hover {
+.r-page .annotated-text:hover {
   background: rgba(139, 96, 64, 0.1);
 }
 
-/* ─── Navigation Buttons ───────────────────────────── */
-.page-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(240, 235, 224, 0.85);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  width: 42px; height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-muted);
-  cursor: pointer;
-  backdrop-filter: blur(4px);
-  transition: background 0.15s, color 0.15s, transform 0.15s;
-  z-index: 100;
-}
-
-.page-nav:hover {
-  background: var(--paper-light);
-  color: var(--ink);
-  transform: translateY(-50%) scale(1.08);
-}
-
-.page-nav:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.page-nav:disabled:hover {
-  transform: translateY(-50%);
-}
-
-.nav-prev { left: 20px; }
-.nav-next { right: 20px; }
-
-/* ─── Page Indicator ───────────────────────────────── */
+/* ─── Navigation & Page Indicator (隐藏 — 卷轴模式不需要) ── */
+.page-nav,
 .page-indicator {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--ink-faint);
-  letter-spacing: 0.1em;
-  background: rgba(240, 235, 224, 0.8);
-  padding: 3px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-light);
+  display: none;
 }
 
 /* ─── Reader Settings ──────────────────────────────── */
@@ -321,6 +144,7 @@
   border-radius: 8px;
   padding: 4px 6px;
   backdrop-filter: blur(4px);
+  z-index: 10;
 }
 
 .font-preset {
@@ -346,17 +170,11 @@
 }
 
 /* ─── Font size variants ───────────────────────────── */
-.reader-book[data-fontsize="18"] .r-page,
-.reader-book[data-fontsize="18"] .flip-front { font-size: 18px; }
-
-.reader-book[data-fontsize="22"] .r-page,
-.reader-book[data-fontsize="22"] .flip-front { font-size: 22px; }
-
-.reader-book[data-fontsize="28"] .r-page,
-.reader-book[data-fontsize="28"] .flip-front { font-size: 28px; }
+.reader-book[data-fontsize="18"] .r-page { font-size: 18px; }
+.reader-book[data-fontsize="22"] .r-page { font-size: 22px; }
+.reader-book[data-fontsize="28"] .r-page { font-size: 28px; }
 
 /* ─── Font family in reader ─────────────────────────── */
-body.font-songti .r-page,
-body.font-songti .flip-front {
+body.font-songti .r-page {
   font-family: var(--font-songti);
 }

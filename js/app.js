@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════
    app.js — 主应用控制器
-   模式切换 / 标题编辑 / Detail 弹窗 / 设置 / 初始化
+   标题编辑 / Detail 弹窗 / 设置 / 初始化
    ═══════════════════════════════════════════════════════ */
 
 ;(async () => {
@@ -8,20 +8,16 @@
 
   await Storage.init()
 
-  let currentMode    = 'edit'   // 'edit' | 'read'
-  let currentNote    = null
-  let isDoubleLayout = false
+  let currentNote = null
 
   // ─── File system watcher (Finder / Obsidian changes) ──
 
   let fsChangeTimer = null
   window.electron.fs.onChanged(() => {
-    // Debounce: multiple events fire for a single operation
     if (fsChangeTimer) clearTimeout(fsChangeTimer)
     fsChangeTimer = setTimeout(() => Sidebar.refresh(), 500)
   })
 
-  // Start watching the vault directory
   const vaultDir = Storage.getVaultPath()
   if (vaultDir) window.electron.fs.watch(vaultDir)
 
@@ -48,8 +44,6 @@
       scheduleYun()
     }
   })
-
-  Reader.init({ onFontSizeChange: updateColLineStepReader })
 
   Sidebar.init({
     onSelect: async (file) => {
@@ -79,7 +73,6 @@
       Sidebar.setActive(filePath)
 
       // Set title in vertical title column
-      // Date-only filenames show empty (placeholder "无题" will appear)
       const filename = filePath.split('/').pop()
       const displayTitle = Storage.extractDisplayTitle(filename)
       const titleEl = document.getElementById('noteTitle')
@@ -88,16 +81,11 @@
 
       updateCreateTime(currentNote.meta?.created)
 
-      // Reset scroll to right edge (document start) and set up height
+      // Reset scroll to right edge (document start) and set up columns
       requestAnimationFrame(() => {
         editorScrollEl.scrollLeft = 0
         setupEditorColumns()
       })
-
-      if (currentMode === 'read') {
-        Reader.setLayout(isDoubleLayout)
-        Reader.paginate(currentNote.body || '')
-      }
     } catch (err) {
       console.error('Failed to open note:', err)
     }
@@ -113,11 +101,9 @@
   }
 
   // ─── Note title (contenteditable vertical column) ──
-  // On blur/Enter → rename file.
 
   const titleEl = document.getElementById('noteTitle')
 
-  // Title is pointer-events:none by default; click on it to start editing
   titleEl.addEventListener('focus', () => titleEl.classList.add('editing'))
   titleEl.addEventListener('blur', () => titleEl.classList.remove('editing'))
 
@@ -128,7 +114,6 @@
     }
   })
 
-  // Prevent multi-line paste — only keep first line
   titleEl.addEventListener('paste', (e) => {
     e.preventDefault()
     const text = e.clipboardData.getData('text/plain').split('\n')[0]
@@ -139,7 +124,6 @@
     if (!currentNote) return
     const newTitle = titleEl.textContent.trim()
     if (!newTitle) {
-      // Restore previous title for titled files; keep empty for date-only files
       const filename = currentNote.path.split('/').pop()
       const prevTitle = Storage.extractDisplayTitle(filename)
       const isDateOnly = /^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(prevTitle)
@@ -148,7 +132,7 @@
     }
 
     try {
-      await Editor.save() // save content first
+      await Editor.save()
       const { path: newPath, changed } = await Storage.renameNote(currentNote.path, newTitle)
 
       if (changed) {
@@ -166,12 +150,18 @@
   })
 
   // ─── Editor horizontal scroll (横向卷轴) ──────────
-  //
-  // writing-mode: vertical-rl 下内容自然向左延伸，
-  // .editor-scroll overflow-x: auto 提供原生横向滚动。
-  // 打字时自动将光标滚入可见区域。
 
   const editorScrollEl = document.querySelector('.editor-scroll')
+
+  // 垂直滚轮 → 横向滚动
+  // 监听挂在 .content-col 上，确保一定能收到 wheel 事件
+  document.querySelector('.content-col').addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) return   // pinch-to-zoom 不干预
+    e.preventDefault()
+    let dy = e.deltaY, dx = e.deltaX
+    if (e.deltaMode === 1) { dy *= 20; dx *= 20 }
+    editorScrollEl.scrollLeft += dx - dy
+  }, { passive: false })
 
   function setupEditorColumns () {
     updateColLineStepEditor()
@@ -185,78 +175,16 @@
     if (!cursorRect.width && !cursorRect.height) return
 
     const containerRect = editorScrollEl.getBoundingClientRect()
-    const margin = 40  // 留一点边距
+    const margin = 40
 
     if (cursorRect.left < containerRect.left + margin) {
-      // 光标在左侧看不见 → 向左滚
       editorScrollEl.scrollBy({ left: cursorRect.left - containerRect.left - margin, behavior: 'smooth' })
     } else if (cursorRect.right > containerRect.right - margin) {
-      // 光标在右侧看不见 → 向右滚
       editorScrollEl.scrollBy({ left: cursorRect.right - containerRect.right + margin, behavior: 'smooth' })
     }
   }
 
-  // Recalculate on resize
   window.addEventListener('resize', setupEditorColumns)
-
-  // ─── Mode switching ──────────────────────────────
-
-  function switchMode (mode) {
-    if (mode === currentMode) return
-    currentMode = mode
-
-    const editorArea = document.getElementById('editorArea')
-    const readerArea = document.getElementById('readerArea')
-    const editBtn    = document.getElementById('editModeBtn')
-    const readBtn    = document.getElementById('readModeBtn')
-
-    if (mode === 'edit') {
-      editorArea.classList.remove('hidden')
-      readerArea.classList.add('hidden')
-      editBtn.classList.add('active')
-      readBtn.classList.remove('active')
-    } else {
-      editorArea.classList.add('hidden')
-      readerArea.classList.remove('hidden')
-      editBtn.classList.remove('active')
-      readBtn.classList.add('active')
-
-      Reader.setLayout(isDoubleLayout)
-      const body = Editor.getBody()
-      Reader.paginate(body)
-    }
-  }
-
-  document.getElementById('editModeBtn').addEventListener('click', () => switchMode('edit'))
-  document.getElementById('readModeBtn').addEventListener('click', () => switchMode('read'))
-
-  // ─── Single / Double page toggle ─────────────────
-
-  const singlePageSVG = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <rect x="4" y="2" width="8" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
-  </svg>`
-
-  const doublePageSVG = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <rect x="1" y="2" width="6" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
-    <rect x="9" y="2" width="6" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
-  </svg>`
-
-  function applyLayout (double) {
-    isDoubleLayout = double
-    const btn = document.getElementById('layoutToggle')
-    btn.innerHTML = double ? doublePageSVG : singlePageSVG
-    btn.classList.toggle('active', double)
-    document.getElementById('editorArea').dataset.layout = double ? 'double' : 'single'
-    if (currentMode === 'read') {
-      Reader.setLayout(double)
-    } else {
-      setupEditorColumns()
-    }
-  }
-
-  document.getElementById('layoutToggle').addEventListener('click', () => {
-    applyLayout(!isDoubleLayout)
-  })
 
   // ─── Sidebar toggle ──────────────────────────────
 
@@ -288,7 +216,6 @@
     if (!currentNote) return
     const meta = currentNote.meta || {}
 
-    // Populate fields
     document.getElementById('dpCreated').textContent =
       meta.created ? fmtDate(meta.created) : '—'
     document.getElementById('dpUpdated').textContent =
@@ -298,7 +225,6 @@
     document.getElementById('dpWriteTime').textContent =
       fmtMinutes(Editor.getWriteMinutes())
 
-    // Position: to the right of the detail button in the vtoolbar
     const rect = detailBtn.getBoundingClientRect()
     detailPopover.style.left  = `${rect.right + 8}px`
     detailPopover.style.top   = `${rect.top}px`
@@ -320,28 +246,16 @@
   })
 
   // ─── Export to Apple Notes ───────────────────────
-  //
-  // Converts Markdown body to HTML for Apple Notes:
-  //   • 去除标题标记、图片、链接标记、斜体、标注语法
-  //   • 保留加粗（** ** → <b>）和换行（\n → <br>）
-  //   • V1：每次都新建 Note，不更新已有 Note
 
   function toAppleNotesHtml (rawBody) {
     const lines = rawBody.split(/\r?\n/)
     const parts = lines.map(line => {
-      // Strip annotation syntax → keep annotated text only
       line = line.replace(/::annotate\[([^\]]+)\]\{[^}]+\}::/g, '$1')
-      // Strip heading markers
       line = line.replace(/^#{1,6}\s+/, '')
-      // Strip image syntax (remove entirely)
       line = line.replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-      // Strip link syntax → keep link text
       line = line.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Bold + italic → bold (preserve bold, strip italic markers)
       line = line.replace(/\*\*\*([^*]+)\*\*\*/g, '<b>$1</b>')
-      // Bold → <b>
       line = line.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
-      // Italic → plain text
       line = line.replace(/\*([^*]+)\*/g, '$1')
       return line
     })
@@ -355,7 +269,6 @@
                     Storage.extractDisplayTitle(currentNote.path.split('/').pop())
     const htmlBody = toAppleNotesHtml(Editor.getBody())
 
-    // Button loading state
     if (btn) { btn.disabled = true; btn.classList.add('sending') }
 
     try {
@@ -367,12 +280,10 @@
     }
   }
 
-  // Button in title column
   document.getElementById('sendToNotesBtn').addEventListener('click', function () {
     doExportToAppleNotes(this)
   })
 
-  // Button in detail popover (existing, reuse new function)
   document.getElementById('popoverExportBtn').addEventListener('click', async () => {
     closeDetail()
     await doExportToAppleNotes(null)
@@ -396,7 +307,6 @@
     const selText = toolbar.dataset.selectedText
     if (!selText) return
 
-    // Get the full editor body to extract context around the selection
     const fullBody = Editor.getBody()
     const selIdx   = fullBody.indexOf(selText)
     const ctxStart = Math.max(0, selIdx - 500)
@@ -404,7 +314,6 @@
     const contextBefore = fullBody.slice(ctxStart, selIdx)
     const contextAfter  = fullBody.slice(selIdx + selText.length, ctxEnd)
 
-    // Build the prompt
     const prompt = `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你說話自然親切，帶著清代文人妻子的雅致，但不矯揉造作——是閨房中夫妻間的私語，不是寫給外人看的書信。
 
 用口語化的方式回應，1-2句即可。不要加「芸：」前綴，不要翻譯或改寫，不要結構化輸出。
@@ -413,11 +322,9 @@
 
 （夫君正在寫的文章，供你了解語境：${contextBefore}${selText}${contextAfter}）`
 
-    // Show loading state
     askBtn.classList.add('yun-loading')
     askBtn.textContent = '…'
 
-    // Save the current selection range before the async call
     const sel = window.getSelection()
     let savedRange = null
     if (sel && sel.rangeCount) {
@@ -426,7 +333,6 @@
 
     let result = null
     try {
-      // Call the appropriate non-streaming backend
       if (yunBackend === 'openrouter') {
         const apiKey = document.getElementById('openRouterKeyInput').value
         const model  = document.getElementById('openRouterModelSelect').value
@@ -449,13 +355,11 @@
       return
     }
 
-    // Insert response after the selected text
     const responseText = '\n芸：' + result.fullText.trim()
 
-    // Restore selection and collapse to end, then insert
     if (savedRange) {
       const insertRange = savedRange.cloneRange()
-      insertRange.collapse(false)  // collapse to end of selection
+      insertRange.collapse(false)
       sel.removeAllRanges()
       sel.addRange(insertRange)
     }
@@ -475,30 +379,22 @@
     }, 200)
   })
 
-  // ─── 列线步距更新（从实际 computed line-height 获取像素值）──
+  // ─── 列线步距更新 ──────────────────────────────────
 
   function updateColLineStepEditor () {
     const el = document.getElementById('editor')
     if (!el) return
     const cs = getComputedStyle(el)
     const lh = parseFloat(cs.lineHeight)
-    const pr = parseFloat(cs.paddingRight)   // writing-mode:vertical-rl → 物理 right = block-start
+    const pr = parseFloat(cs.paddingRight)
     if (lh > 0) document.documentElement.style.setProperty('--col-line-step-editor', lh + 'px')
     if (pr > 0) document.documentElement.style.setProperty('--col-line-offset-editor', pr + 'px')
   }
 
-  function updateColLineStepReader (size) {
-    const step   = size * 2.0   // reader line-height = 2.0
-    const offset = 48           // r-page padding-right（物理 right = block-start in vertical-rl）
-    document.documentElement.style.setProperty('--col-line-step-reader',   step + 'px')
-    document.documentElement.style.setProperty('--col-line-offset-reader', offset + 'px')
-  }
-
   // ─── 样式工具函数 ─────────────────────────────────
 
-  // 根据强度值（0-10）动态生成宣纸纹理 CSS 变量值
   function buildTextureVar (level) {
-    const t = level / 10  // 0.0 – 1.0
+    const t = level / 10
     const a1 = (0.55 * t).toFixed(3)
     const a2 = (0.55 * t).toFixed(3)
     const a3 = (0.28 * t).toFixed(3)
@@ -511,7 +407,6 @@
   }
 
   function applyColLineOpacity (level) {
-    // level 1-10 → opacity 0.08–0.38
     const opacity = (0.07 + level * 0.031).toFixed(3)
     document.documentElement.style.setProperty('--col-line-opacity', opacity)
   }
@@ -530,7 +425,7 @@
     if (!dir) return
     await Storage.setVaultPath(dir)
     document.getElementById('vaultPathInput').value = dir
-    await window.electron.fs.watch(dir)  // Switch watcher to new vault
+    await window.electron.fs.watch(dir)
     await Sidebar.refresh()
   })
 
@@ -538,14 +433,14 @@
     const dir = await window.electron.dialog.openDirectory()
     if (!dir) return
     document.getElementById('projectDirInput').value = dir
-    const config = await window.electron.config.read()
-    config.projectDir = dir
-    await window.electron.config.write(config)
+    await Storage.setDocFolder(dir)
+    await window.electron.fs.watch(dir)  // Watch for changes
+    await Sidebar.refresh()
     checkYunConnection()
   })
 
   // ─── Yun backend toggle (CLI vs OpenRouter) ────
-  let yunBackend = 'cli'  // 'cli' | 'openrouter'
+  let yunBackend = 'cli'
 
   document.querySelectorAll('.yun-backend-choice').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -561,7 +456,6 @@
     })
   })
 
-  // OpenRouter API key save on blur
   document.getElementById('openRouterKeyInput').addEventListener('change', async () => {
     const config = await window.electron.config.read()
     config.openRouterKey = document.getElementById('openRouterKeyInput').value.trim()
@@ -569,20 +463,9 @@
     checkYunConnection()
   })
 
-  // OpenRouter model save on change
   document.getElementById('openRouterModelSelect').addEventListener('change', async () => {
     const config = await window.electron.config.read()
     config.openRouterModel = document.getElementById('openRouterModelSelect').value
-    await window.electron.config.write(config)
-  })
-
-  // Soul file picker for OpenRouter
-  document.getElementById('selectSoulFileBtn').addEventListener('click', async () => {
-    const paths = await window.electron.dialog.openFile({ filters: [{ name: 'Markdown', extensions: ['md', 'txt'] }] })
-    if (!paths || !paths.length) return
-    document.getElementById('openRouterSoulPath').value = paths[0]
-    const config = await window.electron.config.read()
-    config.openRouterSoulPath = paths[0]
     await window.electron.config.write(config)
   })
 
@@ -614,10 +497,7 @@
   async function openSettings () {
     document.getElementById('vaultPathInput').value = Storage.getVaultPath() || ''
     const config = await window.electron.config.read()
-    if (config.projectDir) {
-      document.getElementById('projectDirInput').value = config.projectDir
-    }
-    // Show current CLI path if known
+    document.getElementById('projectDirInput').value = Storage.getDocFolder() || ''
     if (yunBackend === 'cli') {
       const cliResult = await window.electron.yun.checkCli()
       document.getElementById('claudePathInput').value = cliResult.ok ? cliResult.path : '未檢測'
@@ -626,10 +506,8 @@
       document.getElementById('claudePathHint').style.color = ''
     }
 
-    // Restore OpenRouter fields
     if (config.openRouterKey) document.getElementById('openRouterKeyInput').value = config.openRouterKey
     if (config.openRouterModel) document.getElementById('openRouterModelSelect').value = config.openRouterModel
-    if (config.openRouterSoulPath) document.getElementById('openRouterSoulPath').value = config.openRouterSoulPath
 
     document.getElementById('settingsOverlay').classList.remove('hidden')
   }
@@ -654,7 +532,6 @@
   const allThemes = ['xuanzhi', 'yuebai', 'songyan', 'tengzi', 'qingzhu']
 
   function applyTheme (theme) {
-    // Remove all theme classes, then add the selected one (xuanzhi = default, no class)
     allThemes.forEach(t => document.body.classList.remove('theme-' + t))
     if (theme !== 'xuanzhi') {
       document.body.classList.add('theme-' + theme)
@@ -746,7 +623,6 @@
       })
     }
 
-    // 主题
     if (config.theme && config.theme !== 'xuanzhi') {
       applyTheme(config.theme)
       document.querySelectorAll('.theme-choice').forEach(b => {
@@ -754,13 +630,11 @@
       })
     }
 
-    // 宣纸纹理强度（默认 6）
     const textureLevel = config.textureLevel ?? 6
     document.getElementById('textureSlider').value = textureLevel
     document.getElementById('textureVal').textContent = textureLevel
     applyTexture(textureLevel)
 
-    // 列线开关 + 濃度（默认 5）
     if (config.columnLines) {
       document.body.classList.add('show-column-lines')
       document.getElementById('columnLinesToggle').checked = true
@@ -770,11 +644,11 @@
     document.getElementById('colLineVal').textContent = colLineLevel
     applyColLineOpacity(colLineLevel)
 
-    if (config.projectDir) {
-      document.getElementById('projectDirInput').value = config.projectDir
+    if (config.docFolder) {
+      document.getElementById('projectDirInput').value = config.docFolder
+      await window.electron.fs.watch(config.docFolder)
     }
 
-    // Yun backend
     if (config.yunBackend) {
       yunBackend = config.yunBackend
       document.querySelectorAll('.yun-backend-choice').forEach(b => {
@@ -789,26 +663,22 @@
     if (config.openRouterModel) {
       document.getElementById('openRouterModelSelect').value = config.openRouterModel
     }
-    if (config.openRouterSoulPath) {
-      document.getElementById('openRouterSoulPath').value = config.openRouterSoulPath
-    }
+    // openRouterSoulPath removed — soul.md is no longer used
   }
 
   await restoreConfig()
 
   // ─── Yun Agent (芸的评论) ────────────────────
 
-  const yunColTextEl = document.getElementById('yunColText')   // right column
+  const yunColTextEl = document.getElementById('yunColText')
   const yunBubbleEl = document.getElementById('yunBubble')
   const yunBubbleTextEl = document.getElementById('yunBubbleText')
   const yunDotEl = document.getElementById('yunDot')
 
   function setYunDot (state) {
-    // state: 'hidden' | 'pending' | 'connected' | 'streaming' | 'error'
     yunDotEl.className = 'yun-dot' + (state !== 'hidden' ? ' ' + state : '')
   }
 
-  // Check connection availability and show dot
   async function checkYunConnection () {
     setYunDot('pending')
     yunColTextEl.innerHTML = ''
@@ -818,15 +688,11 @@
       if (!key) { setYunDot('hidden'); return }
       setYunDot('connected')
     } else {
-      const projectDir = document.getElementById('projectDirInput').value
-      if (!projectDir) { setYunDot('hidden'); return }
       const result = await window.electron.yun.checkCli()
       if (result.ok) {
         setYunDot('connected')
       } else {
-        setYunDot('error')
-        yunColTextEl.textContent = '芸暫時離開了'
-        yunBubbleTextEl.textContent = '找不到 Claude CLI — 請確認已安裝'
+        setYunDot('hidden')
       }
     }
   }
@@ -835,14 +701,12 @@
   let yunStreamingTimeout = null
   let yunIsStreaming = false
   let yunQueuedRequest = false
-  let yunReplyHistory = []  // last 10 replies
+  let yunReplyHistory = []
   let yunFullText = ''
-  let yunLastSentText = ''  // avoid re-triggering for same content
+  let yunLastSentText = ''
 
-  // Listen for streaming chunks from main process
   window.electron.yun.onChunk((text) => {
     yunFullText += text
-    // Append each character with ink-appear animation
     for (const ch of text) {
       const span = document.createElement('span')
       span.className = 'yun-col-char'
@@ -852,7 +716,6 @@
     yunBubbleTextEl.textContent = yunFullText
   })
 
-  // Listen for stream completion
   window.electron.yun.onDone((result) => {
     yunIsStreaming = false
     if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
@@ -868,15 +731,12 @@
       yunBubbleTextEl.textContent = result.error || '無法連接'
     }
 
-    // Process queued request if any
     if (yunQueuedRequest) {
       yunQueuedRequest = false
       triggerYun()
     }
   })
 
-  // Hover to show full bubble
-  // Hover on yun column to show full reply bubble
   yunColTextEl.addEventListener('mouseenter', () => {
     if (yunColTextEl.textContent && yunColTextEl.textContent !== '') {
       yunBubbleEl.classList.remove('hidden')
@@ -895,23 +755,19 @@
     yunBubbleEl.classList.add('hidden')
   })
 
-  // Schedule Yun check — called whenever editor content changes
   function scheduleYun () {
-    // Check if any backend is configured
-    if (yunBackend === 'cli') {
-      if (!document.getElementById('projectDirInput').value) return
-    } else {
+    if (yunBackend === 'openrouter') {
       if (!document.getElementById('openRouterKeyInput').value) return
     }
 
     if (yunDebounceTimer) clearTimeout(yunDebounceTimer)
     yunDebounceTimer = setTimeout(() => {
       if (yunIsStreaming) {
-        yunQueuedRequest = true  // queue it
+        yunQueuedRequest = true
       } else {
         triggerYun()
       }
-    }, 30000)  // 30 seconds after last input
+    }, 30000)
   }
 
   async function triggerYun () {
@@ -923,33 +779,11 @@
 
     const title = document.getElementById('noteTitle').textContent || '無題'
 
-    // Read soul.md — from project dir (CLI) or explicit file (OpenRouter)
-    let soulContent = ''
-    try {
-      if (yunBackend === 'cli') {
-        const projectDir = document.getElementById('projectDirInput').value
-        if (!projectDir) return
-        const result = await window.electron.yun.readSoul(projectDir)
-        if (result.ok) soulContent = result.content
-      } else {
-        const soulPath = document.getElementById('openRouterSoulPath').value
-        if (soulPath) {
-          const result = await window.electron.fs.readFile(soulPath)
-          if (result.ok) soulContent = result.content
-        }
-      }
-    } catch {}
-
-    // Build prompt
     const historyText = yunReplyHistory.length > 0
       ? '\n\n你之前的回覆：\n' + yunReplyHistory.map((r, i) => `${i + 1}. ${r}`).join('\n')
       : ''
 
-    const soulSection = soulContent
-      ? `\n\n以下是你的性格設定（soul.md）：\n${soulContent}\n\n`
-      : ''
-
-    const prompt = `${soulSection}你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君寫字，偶爾輕聲說上一句。
+    const prompt = `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君寫字，偶爾輕聲說上一句。
 
 夫君正在寫「${title}」，最近寫下的文字：
 「${last100}」
@@ -957,7 +791,6 @@ ${historyText}
 
 用閨房私語的口吻輕聲回應1句，自然親切，不矯揉。不要用引號包裹。`
 
-    // Start streaming
     yunIsStreaming = true
     yunFullText = ''
     yunColTextEl.innerHTML = ''
@@ -965,7 +798,6 @@ ${historyText}
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
 
-    // Safety timeout
     if (yunStreamingTimeout) clearTimeout(yunStreamingTimeout)
     yunStreamingTimeout = setTimeout(() => {
       if (yunIsStreaming) {
@@ -978,26 +810,20 @@ ${historyText}
       }
     }, 60000)
 
-    // Call appropriate backend
     if (yunBackend === 'openrouter') {
       const apiKey = document.getElementById('openRouterKeyInput').value
       const model = document.getElementById('openRouterModelSelect').value
       window.electron.yun.openrouter(apiKey, model, prompt)
     } else {
-      const projectDir = document.getElementById('projectDirInput').value
-      window.electron.yun.ask(prompt, projectDir)
+      const workDir = Storage.getVaultPath()
+      window.electron.yun.ask(prompt, workDir)
     }
   }
 
-  // ─── Initial columns setup ───────────────────────
+  // ─── Initial setup ─────────────────────────────
   setupEditorColumns()
-  // 延迟一帧确保字体渲染完成后再读 computed line-height
   requestAnimationFrame(updateColLineStepEditor)
-
-  // ─── Check Yun CLI connection ───────────────────
   checkYunConnection()
-
-  // ─── Initial note load ───────────────────────────
 
   await Sidebar.refresh()
 

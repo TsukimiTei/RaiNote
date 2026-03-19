@@ -5,7 +5,7 @@
   <title>RaiNote</title>
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/editor.css">
-  <link rel="stylesheet" href="css/reader.css">
+  <link rel="stylesheet" href="css/ios.css">
 </head>
 <body>
 
@@ -53,36 +53,6 @@
     </button>
 
     <div class="vt-sep"></div>
-
-    <!-- Edit mode (pencil) -->
-    <button id="editModeBtn" class="vt-btn active" title="編輯">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M11 2.5L13.5 5L6 12.5L2.5 13.5L3.5 10L11 2.5Z"
-              stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-        <path d="M9.5 4L12 6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      </svg>
-    </button>
-
-    <!-- Read mode (open book) -->
-    <button id="readModeBtn" class="vt-btn" title="閱讀">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M8 13C6.5 11.5 3.5 11.5 2 12V4C3.5 3 6.5 3 8 4.5"
-              stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-        <path d="M8 13C9.5 11.5 12.5 11.5 14 12V4C12.5 3 9.5 3 8 4.5"
-              stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-        <path d="M8 4.5V13" stroke="currentColor" stroke-width="1.3"/>
-      </svg>
-    </button>
-
-    <div class="vt-sep"></div>
-
-    <!-- Layout toggle (icon swapped by applyLayout()) -->
-    <button id="layoutToggle" class="vt-btn" title="切換單/雙頁">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="4" y="2" width="8" height="12" rx="1"
-              stroke="currentColor" stroke-width="1.3"/>
-      </svg>
-    </button>
 
     <!-- Detail info -->
     <button id="detailBtn" class="vt-btn" title="文檔信息">
@@ -151,51 +121,6 @@
         </button>
       </div>
 
-      <!-- Editor page navigation -->
-      <button id="editNavPrev" class="page-nav edit-nav-prev" disabled title="上一頁">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <button id="editNavNext" class="page-nav edit-nav-next" title="下一頁">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <div class="edit-page-indicator">
-        <span id="editPageNum">1</span> / <span id="editPageTot">1</span>
-      </div>
-
-    </section>
-
-    <!-- Reader Area -->
-    <section id="readerArea" class="reader-area hidden">
-      <div class="reader-wrap">
-        <div id="readerBook" class="reader-book single-page">
-          <!-- Pages injected by reader.js -->
-        </div>
-      </div>
-
-      <button id="navNext" class="page-nav nav-next" title="下一頁">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <button id="navPrev" class="page-nav nav-prev" title="上一頁">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-
-      <div class="page-indicator">
-        <span id="pageNum">1</span> / <span id="pageTot">1</span>
-      </div>
-
-      <div class="reader-settings">
-        <button class="font-preset active" data-size="18">小</button>
-        <button class="font-preset" data-size="22">中</button>
-        <button class="font-preset" data-size="28">大</button>
-      </div>
     </section>
 
     <!-- Status Bar -->
@@ -354,16 +279,18 @@
           </div>
         </div>
 
+        <!-- 文檔目錄 -->
+        <div class="setting-group" style="margin-top:12px">
+          <label class="setting-label">文檔目錄</label>
+          <div class="setting-row">
+            <input id="projectDirInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
+            <button id="selectProjectDirBtn" class="btn-secondary">選擇</button>
+          </div>
+          <p class="setting-hint">選擇後自動讀取目錄中的文檔，按日期歸入文件列表</p>
+        </div>
+
         <!-- Claude CLI 設置 -->
         <div id="yunCliSettings">
-          <div class="setting-group" style="margin-top:12px">
-            <label class="setting-label">項目目錄（Claude Code 工作目錄）</label>
-            <div class="setting-row">
-              <input id="projectDirInput" type="text" class="setting-input" readonly placeholder="點擊選擇目錄…">
-              <button id="selectProjectDirBtn" class="btn-secondary">選擇</button>
-            </div>
-            <p class="setting-hint">目錄下的 soul.md 定義芸的性格</p>
-          </div>
           <div class="setting-group" style="margin-top:12px">
             <label class="setting-label">Claude CLI 路徑</label>
             <div class="setting-row">
@@ -387,22 +314,15 @@
             <label class="setting-label">模型</label>
             <div class="setting-row">
               <select id="openRouterModelSelect" class="setting-input">
-                <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
-                <option value="anthropic/claude-haiku-4">Claude Haiku 4</option>
-                <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                <option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option>
+                <option value="anthropic/claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                <option value="anthropic/claude-haiku-4-5">Claude Haiku 4.5</option>
+                <option value="openai/gpt-5.4">GPT-5.4</option>
                 <option value="openai/gpt-4o">GPT-4o</option>
                 <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
                 <option value="deepseek/deepseek-chat-v3">DeepSeek V3</option>
               </select>
             </div>
-          </div>
-          <div class="setting-group" style="margin-top:12px">
-            <label class="setting-label">Soul（芸的性格設定）</label>
-            <div class="setting-row">
-              <input id="openRouterSoulPath" type="text" class="setting-input" readonly placeholder="選擇 soul.md 文件…">
-              <button id="selectSoulFileBtn" class="btn-secondary">選擇</button>
-            </div>
-            <p class="setting-hint">可選，定義芸的回應風格</p>
           </div>
         </div>
       </div>
@@ -415,7 +335,6 @@
 <script src="js/markdown.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="js/editor.js"></script>
-<script src="js/reader.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
