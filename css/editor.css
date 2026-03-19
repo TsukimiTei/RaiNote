@@ -41,7 +41,7 @@
 .note-title-center.editing {
   opacity: 1;
   color: var(--ink-2);
-  background: rgba(250, 247, 240, 0.9);
+  background: var(--paper-light);
   border-radius: 4px;
 }
 
@@ -230,7 +230,7 @@
 
   /* 固定高度（inline size），内容超出后自动产生新列 → 宽度自然增长 */
   height: 100%;
-  flex: 1 0 0;
+  flex: 1 0 auto;
 
   outline: none;
   caret-color: var(--accent);

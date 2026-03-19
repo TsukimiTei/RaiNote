@@ -81,6 +81,14 @@
 
       updateCreateTime(currentNote.meta?.created)
 
+      // 记住最后打开的笔记（延迟写入，避免频繁 I/O）
+      clearTimeout(openNote._saveTimer)
+      openNote._saveTimer = setTimeout(async () => {
+        const cfg = await window.electron.config.read()
+        cfg.lastNotePath = filePath
+        await window.electron.config.write(cfg)
+      }, 1000)
+
       // Reset scroll to right edge (document start) and set up columns
       requestAnimationFrame(() => {
         editorScrollEl.scrollLeft = 0
@@ -190,6 +198,19 @@
 
   document.getElementById('sidebarToggle').addEventListener('click', () => {
     Sidebar.toggle()
+  })
+
+  // ─── Quick new note (toolbar) ─────────────────────
+
+  document.getElementById('quickNewNoteBtn').addEventListener('click', async () => {
+    try {
+      const note = await Storage.createNote()
+      await openNote(note.path, note)
+      await Sidebar.refresh()
+    } catch (err) {
+      console.error('Failed to create note:', err)
+      showToast('创建笔记失败', 'error')
+    }
   })
 
   function handleResize () {
@@ -429,8 +450,6 @@
     await Sidebar.refresh()
   })
 
-  // (文档目录已合并到笔记目录)
-
   // ─── Yun backend toggle (CLI vs OpenRouter) ────
   let yunBackend = 'cli'
 
@@ -649,7 +668,6 @@
     if (config.openRouterModel) {
       document.getElementById('openRouterModelSelect').value = config.openRouterModel
     }
-    // openRouterSoulPath removed — soul.md is no longer used
   }
 
   await restoreConfig()
@@ -813,7 +831,19 @@ ${historyText}
 
   await Sidebar.refresh()
 
-  const todayNote = await Storage.createNote()
-  await openNote(todayNote.path, todayNote)
+  // 恢复上次打开的笔记；fallback 到列表第一个或新建今日笔记
+  const config = await window.electron.config.read()
+  const lastPath = config.lastNotePath
+  if (lastPath && await window.electron.fs.exists(lastPath)) {
+    await openNote(lastPath)
+  } else {
+    const notes = await Storage.listNotes()
+    if (notes.length) {
+      await openNote(notes[0].path)
+    } else {
+      const todayNote = await Storage.createNote()
+      await openNote(todayNote.path, todayNote)
+    }
+  }
 
 })()
