@@ -98,7 +98,7 @@
   backface-visibility: hidden;
 
   background-image:    var(--col-line-reader, none), var(--paper-texture);
-  background-size:     var(--col-line-step-reader, 36px) 100%, 300px 300px;
+  background-size:     var(--col-line-step-reader, 36px) 100%, 800px 800px;
   background-position: right var(--col-line-offset-reader, 48px) center, left 0;
   background-repeat:   repeat-x, repeat;
 }
@@ -153,7 +153,7 @@
   backface-visibility: hidden;
 
   background-image:    var(--col-line-reader, none), var(--paper-texture);
-  background-size:     var(--col-line-step-reader, 36px) 100%, 300px 300px;
+  background-size:     var(--col-line-step-reader, 36px) 100%, 800px 800px;
   background-position: right var(--col-line-offset-reader, 48px) center, left 0;
   background-repeat:   repeat-x, repeat;
 }
@@ -171,7 +171,7 @@
 
   /* 背面：稍深的纸背色 + 宣纸纹理 */
   background-image: var(--paper-texture);
-  background-size: 300px 300px;
+  background-size: 800px 800px;
 }
 
 /* 翻页：右页向左翻 (forward) */
