@@ -375,8 +375,13 @@ const Editor = (() => {
     onInput()
   }
 
+  // Update the file path without reloading content (used after rename)
+  function setPath (newPath) {
+    currentPath = newPath
+  }
+
   return {
-    init, load, save, getBody,
+    init, load, save, getBody, setPath,
     insertAnnotation, hideAnnotationToolbar,
     getWordCount, getWriteMinutes
   }

@@ -145,6 +145,7 @@
 
       if (changed) {
         currentNote.path = newPath
+        Editor.setPath(newPath)
         currentNote.meta = await Storage.saveNote(newPath, Editor.getBody(), {
           title: newTitle
         })
