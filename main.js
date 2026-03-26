@@ -537,7 +537,7 @@ ipcMain.handle('apple:createNote', async (_, title, htmlBody) => {
     return { ok: false, error: 'Apple Notes 仅在 macOS 上可用' }
   }
   // Escape for AppleScript double-quoted string: backslashes first, then quotes
-  const esc = (s) => s
+  const esc = (s) => String(s)
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/\r?\n/g, '')   // HTML uses <br>; strip stray newlines from the string

@@ -13,6 +13,7 @@ const Sidebar = (() => {
   let activeFile    = null
   let onSelectNote  = null
   let onNewNote     = null
+  let onExportNote  = null
 
   // Remember manual collapse/expand state during session
   let collapsedGroups = new Set()
@@ -20,9 +21,10 @@ const Sidebar = (() => {
 
   // ─── Init ─────────────────────────────────────────
 
-  function init ({ onSelect, onNew }) {
+  function init ({ onSelect, onNew, onExport }) {
     onSelectNote = onSelect
     onNewNote    = onNew
+    onExportNote = onExport
 
     searchInput.addEventListener('input', () => render(searchInput.value.trim()))
     newNoteBtn.addEventListener('click', () => {
@@ -291,7 +293,28 @@ const Sidebar = (() => {
       window.electron.shell.showInFinder(file.path)
     })
 
+    const notesItem = document.createElement('div')
+    notesItem.textContent = '發送到 Apple Notes'
+    notesItem.style.cssText = `
+      padding: 7px 14px;
+      cursor: pointer;
+      color: var(--ink-2);
+      transition: background 0.12s;
+    `
+    notesItem.addEventListener('mouseenter', () => {
+      notesItem.style.background = 'var(--paper-shadow)'
+    })
+    notesItem.addEventListener('mouseleave', () => {
+      notesItem.style.background = ''
+    })
+    notesItem.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      menu.remove()
+      if (onExportNote) onExportNote(file)
+    })
+
     menu.appendChild(finderItem)
+    menu.appendChild(notesItem)
     menu.appendChild(deleteItem)
     document.body.appendChild(menu)
 

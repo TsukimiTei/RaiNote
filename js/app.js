@@ -58,6 +58,20 @@
         console.error('Failed to create note:', err)
         showToast('创建笔记失败', 'error')
       }
+    },
+    onExport: async (file) => {
+      try {
+        const note = await Storage.loadNote(file.path)
+        const title = String(note.meta?.title ||
+                      Storage.extractDisplayTitle(file.name.replace('.md', '')))
+        const htmlBody = toAppleNotesHtml(note.body || '')
+        const result = await window.electron.apple.createNote(title, htmlBody)
+        if (result.ok) showToast('已发送到 Apple Notes ✓')
+        else           showToast(result.error, 'error')
+      } catch (err) {
+        console.error('Export failed:', err)
+        showToast('导出失败', 'error')
+      }
     }
   })
 

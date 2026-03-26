@@ -184,6 +184,10 @@ const Editor = (() => {
     // No DOM update — values stored as module state
   }
 
+  function updateWriteTime () {
+    // No DOM update — values stored as module state
+  }
+
   function getWordCount () {
     return Storage.countWords(getBody())
   }
