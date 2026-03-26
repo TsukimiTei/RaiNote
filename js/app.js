@@ -129,10 +129,13 @@
   })
 
   titleEl.addEventListener('blur', async () => {
-    if (!currentNote) return
+    // Capture reference before any async — openNote may change currentNote
+    const note = currentNote
+    if (!note) return
+    const notePath = note.path
     const newTitle = titleEl.textContent.trim()
     if (!newTitle) {
-      const filename = currentNote.path.split('/').pop()
+      const filename = notePath.split('/').pop()
       const prevTitle = Storage.extractDisplayTitle(filename)
       const isDateOnly = /^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(prevTitle)
       titleEl.textContent = isDateOnly ? '' : prevTitle
@@ -141,7 +144,11 @@
 
     try {
       await Editor.save()
-      const { path: newPath, changed } = await Storage.renameNote(currentNote.path, newTitle)
+
+      // Bail if user already switched to a different note during save
+      if (currentNote !== note) return
+
+      const { path: newPath, changed } = await Storage.renameNote(notePath, newTitle)
 
       if (changed) {
         currentNote.path = newPath
