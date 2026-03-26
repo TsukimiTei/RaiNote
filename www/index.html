@@ -5,6 +5,9 @@
   <title>RaiNote</title>
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/editor.css">
+  <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="css/ios.css">
 </head>
 <body>
@@ -101,7 +104,6 @@
 
       <div class="editor-scroll">
         <div class="page-frame">
-          <!-- Note title — centered in editor -->
           <div id="noteTitle"
                class="note-title-center"
                contenteditable="plaintext-only"
@@ -115,7 +117,7 @@
         </div>
       </div>
 
-      <!-- Yun column — rightmost, vertical, shows agent replies -->
+      <!-- Yun column -->
       <div class="yun-col" id="yunCol">
         <span id="yunDot" class="yun-dot yun-col-dot"></span>
         <div id="yunColText" class="yun-col-text"></div>
@@ -200,7 +202,6 @@
       </button>
     </div>
     <div class="modal-body">
-      <!-- 基本設置 -->
       <div class="setting-group">
         <label class="setting-label">笔記目錄（Obsidian Vault）</label>
         <div class="setting-row">
@@ -237,11 +238,8 @@
         </div>
       </div>
 
-      <!-- 樣式設置 -->
       <div class="setting-section">
         <div class="setting-section-title">樣式</div>
-
-        <!-- 宣紙紋理強度 -->
         <div class="setting-group">
           <div class="setting-slider-row">
             <div class="setting-slider-header">
@@ -252,8 +250,6 @@
               min="0" max="10" step="1" value="6">
           </div>
         </div>
-
-        <!-- 列線顯示 + 濃度 -->
         <div class="setting-group" style="margin-top:12px">
           <div class="setting-row setting-row-between">
             <span class="setting-slider-label">顯示列線</span>
@@ -273,11 +269,8 @@
         </div>
       </div>
 
-      <!-- 芸 Agent 設置 -->
       <div class="setting-section">
         <div class="setting-section-title">芸</div>
-
-        <!-- Backend 選擇 -->
         <div class="setting-group">
           <label class="setting-label">連接方式</label>
           <div class="setting-row">
@@ -285,8 +278,6 @@
             <button class="font-choice yun-backend-choice" data-backend="openrouter">OpenRouter</button>
           </div>
         </div>
-
-        <!-- Claude CLI 設置 -->
         <div id="yunCliSettings">
           <div class="setting-group" style="margin-top:12px">
             <label class="setting-label">Claude CLI 路徑</label>
@@ -297,8 +288,6 @@
             <p class="setting-hint" id="claudePathHint">點擊「檢測」自動尋找 claude CLI 安裝位置</p>
           </div>
         </div>
-
-        <!-- OpenRouter 設置 -->
         <div id="yunOpenRouterSettings" style="display:none">
           <div class="setting-group" style="margin-top:12px">
             <label class="setting-label">API Key</label>
@@ -327,6 +316,7 @@
   </div>
 </div>
 
+<script src="js/capacitor-shim.js"></script>
 <!-- Scripts -->
 <script src="js/storage.js"></script>
 <script src="js/markdown.js"></script>

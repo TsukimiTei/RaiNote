@@ -187,7 +187,7 @@
   overflow: visible;
   /* 宣纸纹理 */
   background-image:    var(--col-line-editor, none), var(--paper-texture);
-  background-size:     var(--col-line-step-editor, 34px) 100%, 800px 800px;
+  background-size:     var(--col-line-step-editor, 34px) 100%, 300px 300px;
   background-position: right var(--col-line-offset-editor, 52px) center, left 0;
   background-repeat:   repeat-x, repeat;
 }

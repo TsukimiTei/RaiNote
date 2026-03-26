@@ -419,7 +419,7 @@
     const a1 = (0.55 * t).toFixed(3)
     const a2 = (0.55 * t).toFixed(3)
     const a3 = (0.28 * t).toFixed(3)
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><filter id="p" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.65 0.45" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0.6 0.4 0 0 0.1 0.4 0.5 0.1 0 0.05 0 0.3 0.5 0 0 ${a1} ${a2} ${a3} 0 0"/></filter><rect width="800" height="800" filter="url(#p)"/></svg>`
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><filter id="p" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.65 0.45" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0.6 0.4 0 0 0.1 0.4 0.5 0.1 0 0.05 0 0.3 0.5 0 0 ${a1} ${a2} ${a3} 0 0"/></filter><rect width="300" height="300" filter="url(#p)"/></svg>`
     return `url('data:image/svg+xml,${encodeURIComponent(svg)}')`
   }
 

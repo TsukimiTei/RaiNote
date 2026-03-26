@@ -1,0 +1,244 @@
+/* ═══════════════════════════════════════════════════════
+   ios.css — iOS / Capacitor 专用样式
+   移动端布局 · 安全区域 · 触控优化
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Base ─────────────────────────────────────────────── */
+
+body.capacitor-ios {
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.capacitor-ios ::-webkit-scrollbar { display: none; }
+
+/* ─── Hide desktop vtoolbar ────────────────────────────── */
+
+body.capacitor-ios .vtoolbar { display: none; }
+
+body.capacitor-ios .main-content {
+  flex-direction: column;
+}
+
+/* ─── Content layout ───────────────────────────────────── */
+
+body.capacitor-ios .content-col {
+  height: 100%;
+}
+
+body.capacitor-ios .content-col::before {
+  height: 0;
+  display: none;
+}
+
+/* ─── iOS Top Navigation Bar ───────────────────────────── */
+
+.ios-nav-bar { display: none; }
+
+body.capacitor-ios .ios-nav-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  padding-top: calc(env(safe-area-inset-top, 44px) + 8px);
+  background: var(--rice-paper);
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+  z-index: 10;
+  gap: 8px;
+}
+
+.ios-nav-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  padding: 8px 4px;
+  min-width: 44px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* 芸的消息显示在顶栏 */
+.ios-yun-msg { display: none; }
+
+body.capacitor-ios .ios-yun-msg {
+  display: block;
+  flex: 1;
+  font-family: var(--font-main);
+  font-size: 13px;
+  color: var(--ink-muted);
+  font-style: italic;
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  min-height: 1em;
+}
+
+/* ─── Sidebar — full screen overlay ───────────────────── */
+
+body.capacitor-ios .sidebar {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100% !important;
+  max-width: 100%;
+  z-index: 100;
+  padding-top: calc(env(safe-area-inset-top, 44px) + 8px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: transform 0.3s ease;
+}
+
+body.capacitor-ios .sidebar.collapsed {
+  transform: translateX(-100%);
+}
+
+body.capacitor-ios .sidebar:not(.collapsed) {
+  transform: translateX(0);
+}
+
+body.capacitor-ios .sidebar-header {
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+/* Sidebar top row (back + settings) — hidden on desktop */
+.ios-sidebar-top { display: none; }
+.ios-sidebar-settings { display: none; }
+.ios-sidebar-back { display: none; }
+
+body.capacitor-ios .ios-sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+}
+
+body.capacitor-ios .ios-sidebar-back {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font-main);
+  font-size: 15px;
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+body.capacitor-ios .ios-sidebar-settings {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+body.capacitor-ios .file-item {
+  padding: 14px 20px;
+  min-height: 48px;
+}
+
+body.capacitor-ios .file-list {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Editor ───────────────────────────────────────────── */
+
+body.capacitor-ios .editor {
+  font-size: 20px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+body.capacitor-ios .note-title-center {
+  font-size: 18px;
+  opacity: 0.5;
+}
+
+/* Hide yun column on mobile */
+body.capacitor-ios .yun-col { display: none; }
+
+/* ─── Status bar ───────────────────────────────────────── */
+
+body.capacitor-ios .status-bar {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4px);
+}
+
+/* ─── Settings modal — bottom sheet ──────────────────── */
+
+body.capacitor-ios .modal-overlay {
+  align-items: flex-end;
+}
+
+body.capacitor-ios .modal {
+  width: 100%;
+  max-width: 100%;
+  max-height: 92vh;
+  border-radius: 16px 16px 0 0;
+  margin: 0;
+}
+
+body.capacitor-ios .modal-body {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  max-height: 80vh;
+}
+
+/* ─── Touch targets ──────────────────────────────────── */
+
+body.capacitor-ios .btn-icon,
+body.capacitor-ios .font-preset,
+body.capacitor-ios .font-choice,
+body.capacitor-ios .theme-choice {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+body.capacitor-ios .annotation-toolbar button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 14px;
+}
+
+body.capacitor-ios .page-nav {
+  width: 44px;
+  height: 64px;
+  opacity: 0.6;
+}
+
+/* ─── Detail popover — bottom sheet ──────────────────── */
+
+body.capacitor-ios .detail-popover {
+  left: 16px !important;
+  right: 16px !important;
+  top: auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 48px);
+  width: auto;
+  max-width: none;
+}
+
+/* ─── Reader ─────────────────────────────────────────── */
+
+body.capacitor-ios .reader-settings {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ─── Hide desktop-only ──────────────────────────────── */
+
+body.capacitor-ios #yunCliSettings { display: none !important; }
+body.capacitor-ios #yunOpenRouterSettings { display: block !important; }
+body.capacitor-ios .finder-action { display: none; }
