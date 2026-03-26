@@ -157,8 +157,8 @@ const Sidebar = (() => {
       } else if (collapsedGroups.has(group.dateStr)) {
         isCollapsed = true
       } else {
-        // Default: collapse if older than 7 days
-        isCollapsed = group.timestamp < sevenDaysAgo
+        // Default: always expanded
+        isCollapsed = false
       }
 
       // ── Date group header
