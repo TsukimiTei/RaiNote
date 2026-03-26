@@ -527,7 +527,54 @@
     }
   })
 
+  // ─── Auto Update ──────────────────────────────────
+
+  document.getElementById('checkUpdateBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('checkUpdateBtn')
+    const hint = document.getElementById('updateStatusHint')
+    btn.disabled = true
+    btn.textContent = '檢查中…'
+    hint.textContent = ''
+    hint.style.color = ''
+    await window.electron.updater.checkForUpdates()
+  })
+
+  window.electron.updater.onStatus((data) => {
+    const btn = document.getElementById('checkUpdateBtn')
+    const hint = document.getElementById('updateStatusHint')
+
+    switch (data.state) {
+      case 'checking':
+        hint.textContent = '正在檢查更新…'
+        break
+      case 'up-to-date':
+        btn.disabled = false
+        btn.textContent = '檢查更新'
+        hint.textContent = '已是最新版本'
+        hint.style.color = '#5a9e6f'
+        break
+      case 'downloading':
+        hint.textContent = `正在下載 v${data.version || ''}… ${Math.round(data.percent || 0)}%`
+        break
+      case 'ready':
+        btn.disabled = false
+        btn.textContent = '重啟安裝'
+        btn.onclick = () => window.electron.updater.quitAndInstall()
+        hint.textContent = `v${data.version} 已下載完成，點擊重啟安裝`
+        hint.style.color = '#5a9e6f'
+        break
+      case 'error':
+        btn.disabled = false
+        btn.textContent = '檢查更新'
+        hint.textContent = '檢查更新失敗：' + (data.message || '未知錯誤')
+        hint.style.color = '#c0392b'
+        break
+    }
+  })
+
   async function openSettings () {
+    const version = await window.electron.updater.getVersion()
+    document.getElementById('appVersionLabel').textContent = 'v' + version
     document.getElementById('vaultPathInput').value = Storage.getVaultPath() || ''
     const config = await window.electron.config.read()
     if (yunBackend === 'cli') {

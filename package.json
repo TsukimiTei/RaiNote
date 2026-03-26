@@ -1,6 +1,6 @@
 {
   "name": "rainote",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "传统竖排写作工具 — 仿古书卷风格的个人笔记应用",
   "main": "main.js",
   "scripts": {
@@ -38,6 +38,11 @@
       "!build/**",
       "!dist/**"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "TsukimiTei",
+      "repo": "RaiNote"
+    },
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
@@ -51,6 +56,12 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "arm64"
           ]
@@ -91,6 +102,7 @@
     "@capacitor/ios": "^8.2.0",
     "@capacitor/keyboard": "^8.0.1",
     "@capacitor/preferences": "^8.0.1",
-    "@capacitor/share": "^8.0.1"
+    "@capacitor/share": "^8.0.1",
+    "electron-updater": "^6.8.3"
   }
 }

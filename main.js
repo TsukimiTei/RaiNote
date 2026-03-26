@@ -1,9 +1,11 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { autoUpdater } = require('electron-updater')
 const { execFile, spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 
 let mainWindow
+let isUpdating = false
 
 const isMac = process.platform === 'darwin'
 const isWin = process.platform === 'win32'
@@ -45,6 +47,7 @@ function createWindow () {
   })
 
   mainWindow.on('close', (e) => {
+    if (isUpdating) return // allow close for auto-update install
     e.preventDefault()
     const choice = dialog.showMessageBoxSync(mainWindow, {
       type: 'question',
@@ -66,10 +69,64 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // ─── Auto Updater ─────────────────────────────────────────────
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+
+  function sendUpdaterStatus (data) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:status', data)
+    }
+  }
+
+  autoUpdater.on('checking-for-update', () => {
+    sendUpdaterStatus({ state: 'checking' })
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    sendUpdaterStatus({ state: 'downloading', version: info.version, percent: 0 })
+    autoUpdater.downloadUpdate()
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    sendUpdaterStatus({ state: 'up-to-date' })
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    sendUpdaterStatus({ state: 'downloading', percent: progress.percent })
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdaterStatus({ state: 'ready', version: info.version })
+  })
+
+  autoUpdater.on('error', (err) => {
+    sendUpdaterStatus({ state: 'error', message: err.message })
+  })
 })
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// ─── Updater IPC ──────────────────────────────────────────────────
+
+ipcMain.handle('updater:checkForUpdates', async () => {
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('updater:quitAndInstall', () => {
+  isUpdating = true
+  autoUpdater.quitAndInstall()
+})
+
+ipcMain.handle('updater:getVersion', () => {
+  return app.getVersion()
 })
 
 // ─── File System ──────────────────────────────────────────────────

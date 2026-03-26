@@ -29,6 +29,12 @@ contextBridge.exposeInMainWorld('electron', {
   shell: {
     showInFinder: (path) => ipcRenderer.invoke('shell:showInFinder', path)
   },
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
+    quitAndInstall:  () => ipcRenderer.invoke('updater:quitAndInstall'),
+    getVersion:      () => ipcRenderer.invoke('updater:getVersion'),
+    onStatus:        (cb) => ipcRenderer.on('updater:status', (_, data) => cb(data))
+  },
   yun: {
     checkCli: () => ipcRenderer.invoke('yun:checkCli'),
     detectCli: () => ipcRenderer.invoke('yun:detectCli'),
