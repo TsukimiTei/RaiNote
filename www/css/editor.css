@@ -314,6 +314,9 @@
 body.font-songti .editor {
   font-family: var(--font-songti);
 }
+body.font-fanti .editor {
+  font-family: var(--font-fanti);
+}
 
 /* Scrollbar hidden (overflow: hidden, no scrolling) */
 

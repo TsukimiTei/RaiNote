@@ -88,6 +88,7 @@ body.theme-qingzhu {
   /* 字体栈 */
   --font-kaiti:  'STKaiti', 'KaiTi SC', 'BiauKai', 'AR PL UKai CN', 'KaiTi', serif;
   --font-songti: 'STSong', 'Songti SC', 'SimSun', 'AR PL UMing CN', serif;
+  --font-fanti:  'Kaiti TC', 'BiauKai', 'DFKai-SB', 'AR PL UKai TW', serif;
   --font-ui:     -apple-system, 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
 
   /* 当前字体 (可切换) */
@@ -447,6 +448,89 @@ body {
 }
 
 .modal-overlay.hidden { display: none; }
+
+/* ─── Welcome Screen ──────────────────────────────── */
+.welcome-card {
+  text-align: center;
+  padding: 40px 36px 32px;
+  background: var(--paper-light);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.welcome-title {
+  font-family: var(--font-main);
+  font-size: 20px;
+  letter-spacing: 0.4em;
+  color: var(--ink);
+}
+.welcome-last-note {
+  width: 100%;
+  padding: 16px;
+  background: var(--rice-paper);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.welcome-last-note.hidden { display: none; }
+.welcome-last-label {
+  font-family: var(--font-main);
+  font-size: 11px;
+  color: var(--ink-muted);
+  letter-spacing: 0.15em;
+}
+.welcome-last-title {
+  font-family: var(--font-main);
+  font-size: 16px;
+  color: var(--ink);
+}
+.welcome-last-preview {
+  font-family: var(--font-main);
+  font-size: 13px;
+  color: var(--ink-muted);
+  line-height: 1.6;
+  max-height: 3.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.welcome-btn {
+  font-family: var(--font-main);
+  font-size: 15px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 0;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  letter-spacing: 0.2em;
+}
+.welcome-btn-primary {
+  background: var(--ink);
+  color: var(--paper-light);
+  border-color: var(--ink);
+  margin-top: 4px;
+}
+.welcome-btn-primary:hover { background: var(--ink-2); }
+.welcome-btn-secondary {
+  background: transparent;
+  color: var(--ink-muted);
+  border-color: var(--border-light);
+}
+.welcome-btn-secondary:hover {
+  background: var(--rice-paper);
+  color: var(--ink);
+}
 
 .modal {
   background: var(--paper-light);

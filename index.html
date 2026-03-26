@@ -188,6 +188,20 @@
   <div id="annotationGallery" class="annotation-gallery"></div>
 </div>
 
+<!-- ─── Welcome Screen ────────────────────────────────── -->
+<div id="welcomeOverlay" class="modal-overlay hidden">
+  <div class="welcome-card">
+    <div class="welcome-title">硯 墨 已 備</div>
+    <div id="welcomeLastNote" class="welcome-last-note hidden">
+      <div class="welcome-last-label">上次未完之作</div>
+      <div id="welcomeLastTitle" class="welcome-last-title"></div>
+      <div id="welcomeLastPreview" class="welcome-last-preview"></div>
+      <button id="welcomeOpenLastBtn" class="welcome-btn welcome-btn-primary">續寫</button>
+    </div>
+    <button id="welcomeNewBtn" class="welcome-btn welcome-btn-secondary">起新篇</button>
+  </div>
+</div>
+
 <!-- ─── Settings Modal ───────────────────────────────── -->
 <div id="settingsOverlay" class="modal-overlay hidden">
   <div class="modal">
@@ -214,6 +228,7 @@
         <div class="setting-row">
           <button class="font-choice active" data-font="kaiti">楷體</button>
           <button class="font-choice" data-font="songti">宋體</button>
+          <button class="font-choice" data-font="fanti">繁體</button>
         </div>
       </div>
       <div class="setting-group">
@@ -276,6 +291,16 @@
       <!-- 芸 Agent 設置 -->
       <div class="setting-section">
         <div class="setting-section-title">芸</div>
+
+        <!-- 節奏 -->
+        <div class="setting-group">
+          <label class="setting-label">節奏</label>
+          <div class="setting-row">
+            <button class="font-choice yun-pace-choice" data-pace="sparse">疏</button>
+            <button class="font-choice yun-pace-choice active" data-pace="normal">適</button>
+            <button class="font-choice yun-pace-choice" data-pace="dense">密</button>
+          </div>
+        </div>
 
         <!-- Backend 選擇 -->
         <div class="setting-group">

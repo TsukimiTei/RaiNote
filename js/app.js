@@ -41,7 +41,6 @@
     onChange: () => {
       updatePlaceholder()
       requestAnimationFrame(followCursor)
-      scheduleYun()
     }
   })
 
@@ -475,6 +474,18 @@
   // ─── Yun backend toggle (CLI vs OpenRouter) ────
   let yunBackend = 'cli'
 
+  document.querySelectorAll('.yun-pace-choice').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      document.querySelectorAll('.yun-pace-choice').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      yunPace = btn.dataset.pace
+      const config = await window.electron.config.read()
+      config.yunPace = yunPace
+      await window.electron.config.write(config)
+      startYunTimer()
+    })
+  })
+
   document.querySelectorAll('.yun-backend-choice').forEach(btn => {
     btn.addEventListener('click', async () => {
       document.querySelectorAll('.yun-backend-choice').forEach(b => b.classList.remove('active'))
@@ -595,12 +606,13 @@
     document.getElementById('settingsOverlay').classList.add('hidden')
   }
 
-  document.querySelectorAll('.font-choice').forEach(btn => {
+  document.querySelectorAll('.font-choice[data-font]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      document.querySelectorAll('.font-choice').forEach(b => b.classList.remove('active'))
+      document.querySelectorAll('.font-choice[data-font]').forEach(b => b.classList.remove('active'))
       btn.classList.add('active')
       const font = btn.dataset.font
-      document.body.classList.toggle('font-songti', font === 'songti')
+      document.body.classList.remove('font-songti', 'font-fanti')
+      if (font !== 'kaiti') document.body.classList.add('font-' + font)
       const config = await window.electron.config.read()
       config.font = font
       await window.electron.config.write(config)
@@ -695,10 +707,10 @@
   async function restoreConfig () {
     const config = await window.electron.config.read()
 
-    if (config.font === 'songti') {
-      document.body.classList.add('font-songti')
-      document.querySelectorAll('.font-choice').forEach(b => {
-        b.classList.toggle('active', b.dataset.font === 'songti')
+    if (config.font && config.font !== 'kaiti') {
+      document.body.classList.add('font-' + config.font)
+      document.querySelectorAll('.font-choice[data-font]').forEach(b => {
+        b.classList.toggle('active', b.dataset.font === config.font)
       })
     }
 
@@ -723,6 +735,12 @@
     document.getElementById('colLineVal').textContent = colLineLevel
     applyColLineOpacity(colLineLevel)
 
+    if (config.yunPace) {
+      yunPace = config.yunPace
+      document.querySelectorAll('.yun-pace-choice').forEach(b => {
+        b.classList.toggle('active', b.dataset.pace === yunPace)
+      })
+    }
     if (config.yunBackend) {
       yunBackend = config.yunBackend
       document.querySelectorAll('.yun-backend-choice').forEach(b => {
@@ -755,28 +773,60 @@
   async function checkYunConnection () {
     setYunDot('pending')
     yunColTextEl.innerHTML = ''
+    stopYunTimer()
 
     if (yunBackend === 'openrouter') {
       const key = document.getElementById('openRouterKeyInput').value
       if (!key) { setYunDot('hidden'); return }
       setYunDot('connected')
+      startYunTimer()
     } else {
       const result = await window.electron.yun.checkCli()
       if (result.ok) {
         setYunDot('connected')
+        startYunTimer()
       } else {
         setYunDot('hidden')
       }
     }
   }
 
-  let yunDebounceTimer = null
+  const YUN_PACE_RANGES = {
+    dense:  [10000, 30000],
+    normal: [30000, 120000],
+    sparse: [60000, 180000]
+  }
+  const YUN_COOLDOWN = 10000
+
+  let yunPace = 'normal'
+  let yunRandomTimer = null
   let yunStreamingTimeout = null
   let yunIsStreaming = false
   let yunQueuedRequest = false
   let yunReplyHistory = []
   let yunFullText = ''
   let yunLastSentText = ''
+
+  function getYunRandomDelay () {
+    const [min, max] = YUN_PACE_RANGES[yunPace]
+    return min + Math.random() * (max - min)
+  }
+
+  function startYunTimer () {
+    stopYunTimer()
+    if (yunBackend === 'openrouter' && !document.getElementById('openRouterKeyInput').value) return
+    yunRandomTimer = setTimeout(() => {
+      if (yunIsStreaming) {
+        yunQueuedRequest = true
+      } else {
+        triggerYun()
+      }
+    }, getYunRandomDelay())
+  }
+
+  function stopYunTimer () {
+    if (yunRandomTimer) { clearTimeout(yunRandomTimer); yunRandomTimer = null }
+  }
 
   window.electron.yun.onChunk((text) => {
     yunFullText += text
@@ -807,6 +857,8 @@
     if (yunQueuedRequest) {
       yunQueuedRequest = false
       triggerYun()
+    } else {
+      setTimeout(() => startYunTimer(), YUN_COOLDOWN)
     }
   })
 
@@ -828,27 +880,16 @@
     yunBubbleEl.classList.add('hidden')
   })
 
-  function scheduleYun () {
-    if (yunBackend === 'openrouter') {
-      if (!document.getElementById('openRouterKeyInput').value) return
-    }
-
-    if (yunDebounceTimer) clearTimeout(yunDebounceTimer)
-    yunDebounceTimer = setTimeout(() => {
-      if (yunIsStreaming) {
-        yunQueuedRequest = true
-      } else {
-        triggerYun()
-      }
-    }, 30000)
-  }
-
   async function triggerYun () {
     const body = Editor.getBody()
     const last100 = body.slice(-100)
-    if (!last100.trim()) return
-    if (last100 === yunLastSentText) return
-    yunLastSentText = last100
+    const isEmpty = !last100.trim()
+
+    if (!isEmpty && last100 === yunLastSentText) {
+      startYunTimer()
+      return
+    }
+    if (!isEmpty) yunLastSentText = last100
 
     const title = document.getElementById('noteTitle').textContent || '無題'
 
@@ -856,7 +897,12 @@
       ? '\n\n你之前的回覆：\n' + yunReplyHistory.map((r, i) => `${i + 1}. ${r}`).join('\n')
       : ''
 
-    const prompt = `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君寫字，偶爾輕聲說上一句。
+    const prompt = isEmpty
+      ? `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君，見他還未提筆。
+${historyText}
+
+用閨房私語的口吻輕聲說1句鼓勵或閒聊的話，自然親切，不矯揉。不要用引號包裹。`
+      : `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君寫字，偶爾輕聲說上一句。
 
 夫君正在寫「${title}」，最近寫下的文字：
 「${last100}」
@@ -900,19 +946,52 @@ ${historyText}
 
   await Sidebar.refresh()
 
-  // 恢复上次打开的笔记；fallback 到列表第一个或新建今日笔记
-  const config = await window.electron.config.read()
-  const lastPath = config.lastNotePath
-  if (lastPath && await window.electron.fs.exists(lastPath)) {
-    await openNote(lastPath)
-  } else {
-    const notes = await Storage.listNotes()
-    if (notes.length) {
-      await openNote(notes[0].path)
+  // ─── Welcome screen ──────────────────────────────
+  const welcomeOverlay = document.getElementById('welcomeOverlay')
+  const welcomeLastNote = document.getElementById('welcomeLastNote')
+  const welcomeLastTitle = document.getElementById('welcomeLastTitle')
+  const welcomeLastPreview = document.getElementById('welcomeLastPreview')
+
+  function closeWelcome () {
+    welcomeOverlay.classList.add('hidden')
+  }
+
+  async function showWelcome () {
+    const config = await window.electron.config.read()
+    const lastPath = config.lastNotePath
+
+    if (lastPath && await window.electron.fs.exists(lastPath)) {
+      try {
+        const note = await Storage.loadNote(lastPath)
+        const filename = lastPath.split('/').pop()
+        const title = Storage.extractDisplayTitle(filename)
+        const isDateOnly = /^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(title)
+        welcomeLastTitle.textContent = isDateOnly ? filename.replace('.md', '') : title
+        const plain = (note.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+        welcomeLastPreview.textContent = plain.slice(0, 80) || '（空白）'
+        welcomeLastNote.classList.remove('hidden')
+
+        document.getElementById('welcomeOpenLastBtn').onclick = async () => {
+          closeWelcome()
+          await openNote(lastPath, note)
+        }
+      } catch {
+        welcomeLastNote.classList.add('hidden')
+      }
     } else {
+      welcomeLastNote.classList.add('hidden')
+    }
+
+    document.getElementById('welcomeNewBtn').onclick = async () => {
+      closeWelcome()
       const todayNote = await Storage.createNote()
       await openNote(todayNote.path, todayNote)
+      await Sidebar.refresh()
     }
+
+    welcomeOverlay.classList.remove('hidden')
   }
+
+  await showWelcome()
 
 })()
