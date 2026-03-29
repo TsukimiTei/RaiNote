@@ -540,15 +540,23 @@
 
   // ─── Auto Update ──────────────────────────────────
 
-  document.getElementById('checkUpdateBtn').addEventListener('click', async () => {
+  const runUpdateCheck = async () => {
     const btn = document.getElementById('checkUpdateBtn')
     const hint = document.getElementById('updateStatusHint')
     btn.disabled = true
     btn.textContent = '檢查中…'
     hint.textContent = ''
     hint.style.color = ''
-    await window.electron.updater.checkForUpdates()
-  })
+    const result = await window.electron.updater.checkForUpdates()
+    if (result && !result.ok) {
+      btn.disabled = false
+      btn.textContent = '檢查更新'
+      hint.textContent = result.error || '檢查更新失敗'
+      hint.style.color = '#c0392b'
+    }
+  }
+
+  document.getElementById('checkUpdateBtn').onclick = runUpdateCheck
 
   window.electron.updater.onStatus((data) => {
     const btn = document.getElementById('checkUpdateBtn')
@@ -561,6 +569,7 @@
       case 'up-to-date':
         btn.disabled = false
         btn.textContent = '檢查更新'
+        btn.onclick = runUpdateCheck
         hint.textContent = '已是最新版本'
         hint.style.color = '#5a9e6f'
         break
@@ -570,13 +579,30 @@
       case 'ready':
         btn.disabled = false
         btn.textContent = '重啟安裝'
-        btn.onclick = () => window.electron.updater.quitAndInstall()
+        btn.onclick = async () => {
+          const result = await window.electron.updater.quitAndInstall()
+          if (result && !result.ok) {
+            btn.disabled = false
+            btn.textContent = '檢查更新'
+            btn.onclick = runUpdateCheck
+            hint.textContent = result.error || '安裝更新失敗'
+            hint.style.color = '#c0392b'
+          }
+        }
         hint.textContent = `v${data.version} 已下載完成，點擊重啟安裝`
         hint.style.color = '#5a9e6f'
+        break
+      case 'unavailable':
+        btn.disabled = false
+        btn.textContent = '檢查更新'
+        btn.onclick = runUpdateCheck
+        hint.textContent = data.message || '目前版本不支援自動更新'
+        hint.style.color = '#c0392b'
         break
       case 'error':
         btn.disabled = false
         btn.textContent = '檢查更新'
+        btn.onclick = runUpdateCheck
         hint.textContent = '檢查更新失敗：' + (data.message || '未知錯誤')
         hint.style.color = '#c0392b'
         break

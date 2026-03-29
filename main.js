@@ -1,8 +1,17 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
-const { autoUpdater } = require('electron-updater')
 const { execFile, spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
+
+let autoUpdater = null
+let updaterLoadError = null
+
+try {
+  ;({ autoUpdater } = require('electron-updater'))
+} catch (err) {
+  updaterLoadError = err
+  console.warn('[updater] electron-updater unavailable:', err.message)
+}
 
 let mainWindow
 let isUpdating = false
@@ -64,21 +73,37 @@ function createWindow () {
   })
 }
 
+function getUpdaterUnavailableStatus () {
+  return {
+    state: 'unavailable',
+    message: updaterLoadError
+      ? `Auto update is unavailable in this build: ${updaterLoadError.message}`
+      : 'Auto update is unavailable in this build.'
+  }
+}
+
 app.whenReady().then(() => {
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  // ─── Auto Updater ─────────────────────────────────────────────
-  autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
-
   function sendUpdaterStatus (data) {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('updater:status', data)
     }
   }
+
+  if (!autoUpdater) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      sendUpdaterStatus(getUpdaterUnavailableStatus())
+    })
+    return
+  }
+
+  // ─── Auto Updater ─────────────────────────────────────────────
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
 
   autoUpdater.on('checking-for-update', () => {
     sendUpdaterStatus({ state: 'checking' })
@@ -113,16 +138,24 @@ app.on('window-all-closed', () => {
 // ─── Updater IPC ──────────────────────────────────────────────────
 
 ipcMain.handle('updater:checkForUpdates', async () => {
+  if (!autoUpdater) {
+    return { ok: false, error: getUpdaterUnavailableStatus().message }
+  }
   try {
     await autoUpdater.checkForUpdates()
+    return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
   }
 })
 
 ipcMain.handle('updater:quitAndInstall', () => {
+  if (!autoUpdater) {
+    return { ok: false, error: getUpdaterUnavailableStatus().message }
+  }
   isUpdating = true
   autoUpdater.quitAndInstall()
+  return { ok: true }
 })
 
 ipcMain.handle('updater:getVersion', () => {

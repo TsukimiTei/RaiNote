@@ -34,7 +34,8 @@
       "index.html",
       "css/**",
       "js/**",
-      "!node_modules/**",
+      "!node_modules/@capacitor/**",
+      "!node_modules/@capacitor/cli/**",
       "!build/**",
       "!dist/**"
     ],
