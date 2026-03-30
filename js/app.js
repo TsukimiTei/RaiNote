@@ -453,6 +453,24 @@
     document.documentElement.style.setProperty('--col-line-opacity', opacity)
   }
 
+  // ─── Yun Log ─────────────────────────────────────
+
+  const yunLogPanel = document.getElementById('yunLogPanel')
+
+  function yunLog (msg, type) {
+    const entry = document.createElement('div')
+    entry.className = 'yun-log-entry' + (type ? ' log-' + type : '')
+    const t = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    entry.innerHTML = `<span class="log-time">${t}</span><span class="log-msg">${msg}</span>`
+    yunLogPanel.appendChild(entry)
+    yunLogPanel.scrollTop = yunLogPanel.scrollHeight
+    while (yunLogPanel.children.length > 200) yunLogPanel.removeChild(yunLogPanel.firstChild)
+  }
+
+  document.getElementById('yunLogClearBtn').addEventListener('click', () => {
+    yunLogPanel.innerHTML = ''
+  })
+
   // ─── Settings ────────────────────────────────────
 
   document.getElementById('settingsBtn').addEventListener('click', openSettings)
@@ -460,6 +478,17 @@
 
   document.getElementById('settingsOverlay').addEventListener('click', (e) => {
     if (e.target === document.getElementById('settingsOverlay')) closeSettings()
+  })
+
+  // ─── Settings Tab Switching ─────────────────────
+  document.querySelectorAll('.modal-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'))
+      tab.classList.add('active')
+      const target = tab.dataset.tab
+      document.getElementById('settingsTabContent').classList.toggle('hidden', target !== 'settings')
+      document.getElementById('yunLogTabContent').classList.toggle('hidden', target !== 'yunlog')
+    })
   })
 
   document.getElementById('selectVaultBtn').addEventListener('click', async () => {
@@ -530,11 +559,13 @@
       input.value = result.path
       hint.textContent = '已找到 Claude CLI'
       hint.style.color = '#5a9e6f'
+      yunLog(`手動檢測成功: ${result.path}`, 'ok')
       checkYunConnection()
     } else {
       input.value = '未找到'
       hint.textContent = '請確認已安裝 Claude Code CLI (npm i -g @anthropic-ai/claude-code)'
       hint.style.color = '#c0392b'
+      yunLog('手動檢測失敗 — CLI 未找到', 'err')
     }
   })
 
@@ -800,19 +831,27 @@
     setYunDot('pending')
     yunColTextEl.innerHTML = ''
     stopYunTimer()
+    yunLog(`檢查連接… 後端: ${yunBackend}`)
 
     if (yunBackend === 'openrouter') {
       const key = document.getElementById('openRouterKeyInput').value
-      if (!key) { setYunDot('hidden'); return }
+      if (!key) {
+        setYunDot('hidden')
+        yunLog('OpenRouter 未設置 API Key', 'warn')
+        return
+      }
       setYunDot('connected')
+      yunLog('OpenRouter 已連接（模型：' + document.getElementById('openRouterModelSelect').value + '）', 'ok')
       startYunTimer()
     } else {
       const result = await window.electron.yun.checkCli()
       if (result.ok) {
         setYunDot('connected')
+        yunLog('CLI 已連接：' + result.path, 'ok')
         startYunTimer()
       } else {
         setYunDot('hidden')
+        yunLog('CLI 未找到 — 請安裝 Claude Code 或點擊檢測', 'err')
       }
     }
   }
@@ -855,9 +894,14 @@
     if (yunRandomTimer) { clearTimeout(yunRandomTimer); yunRandomTimer = null }
   }
 
+  let yunChunkLogged = false
   window.electron.yun.onChunk((text) => {
     yunFullText += text
     yunBubbleTextEl.textContent = yunFullText
+    if (!yunChunkLogged) {
+      yunChunkLogged = true
+      yunLog('收到回覆流…')
+    }
   })
 
   window.electron.yun.onDone((result) => {
@@ -866,6 +910,8 @@
 
     if (result.ok && yunFullText) {
       setYunDot('connected')
+      const preview = yunFullText.length > 40 ? yunFullText.slice(0, 40) + '…' : yunFullText
+      yunLog(`回覆（${yunFullText.length}字）: ${preview}`, 'ok')
       yunReplyHistory.push(yunFullText)
       if (yunReplyHistory.length > 10) yunReplyHistory.shift()
       // Auto-fade bubble after 6 seconds
@@ -876,6 +922,7 @@
       }, 6000)
     } else if (!result.ok) {
       setYunDot('error')
+      yunLog(`錯誤: ${result.error || '未知錯誤'}`, 'err')
       yunBubbleTextEl.textContent = result.error || '芸暫時離開了'
       if (yunFadeTimer) clearTimeout(yunFadeTimer)
       yunFadeTimer = setTimeout(() => {
@@ -950,8 +997,10 @@ ${historyText}
 
     yunIsStreaming = true
     yunFullText = ''
+    yunChunkLogged = false
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
+    yunLog(`發送查詢 [${yunBackend}]${isEmpty ? '（空白提示）' : ''}`)
 
     // Position bubble at bottom of editor area, horizontally near cursor
     const editorAreaRect = document.getElementById('editorArea').getBoundingClientRect()

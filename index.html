@@ -213,7 +213,11 @@
         </svg>
       </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-tab-bar">
+      <button class="modal-tab active" data-tab="settings">設置</button>
+      <button class="modal-tab" data-tab="yunlog">芸 日誌</button>
+    </div>
+    <div class="modal-body" id="settingsTabContent">
       <!-- 基本設置 -->
       <div class="setting-group">
         <label class="setting-label">笔記目錄（Obsidian Vault）</label>
@@ -347,6 +351,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <!-- 關於 / 更新 -->
@@ -359,6 +364,16 @@
           </div>
           <p class="setting-hint" id="updateStatusHint"></p>
         </div>
+      </div>
+    </div>
+    <!-- 芸 日誌 Tab -->
+    <div class="modal-body hidden" id="yunLogTabContent">
+      <div class="setting-group">
+        <div class="setting-row setting-row-between" style="margin-bottom:8px">
+          <label class="setting-label">連接與查詢日誌</label>
+          <button id="yunLogClearBtn" class="btn-text" style="font-size:11px;padding:2px 8px">清除</button>
+        </div>
+        <div id="yunLogPanel" class="yun-log-panel"></div>
       </div>
     </div>
   </div>
