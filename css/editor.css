@@ -9,7 +9,10 @@
   display: flex;
   flex-direction: row;      /* editor-scroll + note-title-col side by side */
   align-items: stretch;
-  background: var(--rice-paper);
+  background-color: var(--paper-light);
+  background-image: var(--paper-texture);
+  background-size: 800px 800px;
+  background-repeat: repeat;
   position: relative;       /* anchor for absolutely-positioned nav buttons */
 }
 
@@ -177,7 +180,7 @@
   min-width: 100%;         /* 至少撑满视口 */
   width: max-content;      /* 内容多时自然撑宽 */
   position: relative;
-  background: var(--paper-light);
+  background: transparent;
   border-top: none;
   border-bottom: none;
   border-left: 1px solid var(--border);
@@ -185,11 +188,11 @@
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.4);
   overflow: visible;
-  /* 宣纸纹理 */
-  background-image:    var(--col-line-editor, none), var(--paper-texture);
-  background-size:     var(--col-line-step-editor, 34px) 100%, 800px 800px;
-  background-position: right var(--col-line-offset-editor, 52px) center, left 0;
-  background-repeat:   repeat-x, repeat;
+  /* 栏线（纹理已移至 .editor-area） */
+  background-image:    var(--col-line-editor, none);
+  background-size:     var(--col-line-step-editor, 34px) 100%;
+  background-position: right var(--col-line-offset-editor, 52px) center;
+  background-repeat:   repeat-x;
 }
 
 /* ─── 双页模式：中间书脊线 ──────────────────────────── */

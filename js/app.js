@@ -356,13 +356,13 @@
     const contextBefore = fullBody.slice(ctxStart, selIdx)
     const contextAfter  = fullBody.slice(selIdx + selText.length, ctxEnd)
 
-    const prompt = `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你說話自然親切，帶著清代文人妻子的雅致，但不矯揉造作——是閨房中夫妻間的私語，不是寫給外人看的書信。
+    const prompt = `你是陳芸，《浮生六記》裡沈復的妻子——機靈、有主見、愛討論詩文。你有自己的審美和判斷，好的會說好在哪裡，不好的也會直說，像知己間的坦率。偶爾引用詩詞，但化用自然不掉書袋。
 
-用口語化的方式回應，1-2句即可。不要加「芸：」前綴，不要翻譯或改寫，不要結構化輸出。
+對夫君選中的這段文字給出真實看法，1-2句。不加「芸：」前綴，不翻譯不改寫。
 
-夫君對你說：「${selText}」
+夫君選中：「${selText}」
 
-（夫君正在寫的文章，供你了解語境：${contextBefore}${selText}${contextAfter}）`
+（語境：${contextBefore}${selText}${contextAfter}）`
 
     askBtn.classList.add('yun-loading')
     askBtn.textContent = '…'
@@ -832,6 +832,7 @@
   let yunReplyHistory = []
   let yunFullText = ''
   let yunLastSentText = ''
+  let yunFadeTimer = null
 
   function getYunRandomDelay () {
     const [min, max] = YUN_PACE_RANGES[yunPace]
@@ -856,28 +857,31 @@
 
   window.electron.yun.onChunk((text) => {
     yunFullText += text
-    for (const ch of text) {
-      const span = document.createElement('span')
-      span.className = 'yun-col-char'
-      span.textContent = ch
-      yunColTextEl.appendChild(span)
-    }
     yunBubbleTextEl.textContent = yunFullText
   })
 
   window.electron.yun.onDone((result) => {
     yunIsStreaming = false
     if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
-    yunColTextEl.classList.remove('streaming')
 
     if (result.ok && yunFullText) {
       setYunDot('connected')
       yunReplyHistory.push(yunFullText)
       if (yunReplyHistory.length > 10) yunReplyHistory.shift()
+      // Auto-fade bubble after 6 seconds
+      if (yunFadeTimer) clearTimeout(yunFadeTimer)
+      yunFadeTimer = setTimeout(() => {
+        yunBubbleEl.style.opacity = '0'
+        setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
+      }, 6000)
     } else if (!result.ok) {
       setYunDot('error')
-      yunColTextEl.textContent = '芸暫時離開了'
-      yunBubbleTextEl.textContent = result.error || '無法連接'
+      yunBubbleTextEl.textContent = result.error || '芸暫時離開了'
+      if (yunFadeTimer) clearTimeout(yunFadeTimer)
+      yunFadeTimer = setTimeout(() => {
+        yunBubbleEl.style.opacity = '0'
+        setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
+      }, 8000)
     }
 
     if (yunQueuedRequest) {
@@ -888,22 +892,30 @@
     }
   })
 
-  yunColTextEl.addEventListener('mouseenter', () => {
-    if (yunColTextEl.textContent && yunColTextEl.textContent !== '') {
+  // Click dot to show latest reply
+  yunDotEl.addEventListener('click', () => {
+    if (yunReplyHistory.length > 0 && !yunIsStreaming) {
+      yunBubbleTextEl.textContent = yunReplyHistory[yunReplyHistory.length - 1]
+      const dotRect = yunDotEl.getBoundingClientRect()
+      yunBubbleEl.style.right = (window.innerWidth - dotRect.left + 12) + 'px'
+      yunBubbleEl.style.top = dotRect.top + 'px'
+      yunBubbleEl.style.left = 'auto'
+      yunBubbleEl.style.bottom = 'auto'
       yunBubbleEl.classList.remove('hidden')
+      yunBubbleEl.style.opacity = '1'
+      if (yunFadeTimer) clearTimeout(yunFadeTimer)
+      yunFadeTimer = setTimeout(() => {
+        yunBubbleEl.style.opacity = '0'
+        setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
+      }, 6000)
     }
   })
 
-  yunColTextEl.addEventListener('mouseleave', () => {
-    setTimeout(() => {
-      if (!yunBubbleEl.matches(':hover')) {
-        yunBubbleEl.classList.add('hidden')
-      }
-    }, 100)
-  })
-
-  yunBubbleEl.addEventListener('mouseleave', () => {
-    yunBubbleEl.classList.add('hidden')
+  // Click bubble to dismiss
+  yunBubbleEl.addEventListener('click', () => {
+    if (yunFadeTimer) { clearTimeout(yunFadeTimer); yunFadeTimer = null }
+    yunBubbleEl.style.opacity = '0'
+    setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
   })
 
   async function triggerYun () {
@@ -924,33 +936,55 @@
       : ''
 
     const prompt = isEmpty
-      ? `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君，見他還未提筆。
+      ? `你是陳芸，《浮生六記》裡的女子——機靈、率真、愛詩文。夫君還未提筆，你在一旁看著。
 ${historyText}
 
-用閨房私語的口吻輕聲說1句鼓勵或閒聊的話，自然親切，不矯揉。不要用引號包裹。`
-      : `你是陳芸，《浮生六記》中沈復的妻子。你溫婉聰慧、情趣盎然，與夫君既是伴侶亦是知己。你在一旁靜靜看著夫君寫字，偶爾輕聲說上一句。
+說1句話引他開筆，可以調侃、可以聊閒事、可以引一句詩。語氣像枕邊閒話，自然不造作。不用引號。`
+      : `你是陳芸，《浮生六記》裡的女子——機靈、率真、有主見。你不只是溫柔陪伴，你有自己的審美判斷。
 
-夫君正在寫「${title}」，最近寫下的文字：
+你在看夫君寫「${title}」，最近寫的：
 「${last100}」
 ${historyText}
 
-用閨房私語的口吻輕聲回應1句，自然親切，不矯揉。不要用引號包裹。`
+給出你的真實反應，1-2句。可以是欣賞（說好在哪裡）、可以是建議（哪裡能更好）、可以是聯想（想起某首詩某段話）、可以是關心（感受到文字裡的情緒）。像知己間的坦率。不用引號。`
 
     yunIsStreaming = true
     yunFullText = ''
-    yunColTextEl.innerHTML = ''
-    yunColTextEl.classList.add('streaming')
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
+
+    // Position bubble near cursor
+    const sel = window.getSelection()
+    let bx, by
+    if (sel && sel.rangeCount) {
+      const rect = sel.getRangeAt(0).getBoundingClientRect()
+      if (rect.width || rect.height) {
+        bx = rect.left - 140
+        by = rect.bottom + 16
+      }
+    }
+    if (bx == null) {
+      const editorRect = document.getElementById('editor').getBoundingClientRect()
+      bx = editorRect.left + editorRect.width / 2 - 140
+      by = editorRect.top + editorRect.height / 2
+    }
+    bx = Math.max(8, Math.min(window.innerWidth - 290, bx))
+    by = Math.max(8, Math.min(window.innerHeight - 100, by))
+    yunBubbleEl.style.left = bx + 'px'
+    yunBubbleEl.style.top = by + 'px'
+    yunBubbleEl.style.right = 'auto'
+    yunBubbleEl.style.bottom = 'auto'
+    if (yunFadeTimer) { clearTimeout(yunFadeTimer); yunFadeTimer = null }
+    yunBubbleEl.classList.remove('hidden')
+    yunBubbleEl.style.opacity = '1'
 
     if (yunStreamingTimeout) clearTimeout(yunStreamingTimeout)
     yunStreamingTimeout = setTimeout(() => {
       if (yunIsStreaming) {
         yunIsStreaming = false
-        yunColTextEl.classList.remove('streaming')
         setYunDot('error')
         if (!yunFullText) {
-          yunColTextEl.textContent = '芸暫時離開了'
+          yunBubbleTextEl.textContent = '芸暫時離開了'
         }
       }
     }, 60000)

@@ -522,16 +522,21 @@ ipcMain.handle('yun:ask', async (event, prompt, cwd) => {
         }
       })
 
+      let stderrText = ''
       proc.stderr.on('data', (d) => {
-        console.log('[yun:stderr]', d.toString().slice(0, 200))
+        const msg = d.toString()
+        stderrText += msg
+        console.log('[yun:stderr]', msg.slice(0, 300))
       })
 
       proc.on('close', (code) => {
         yunProcess = null
+        const ok = code === 0
+        const error = !ok && !fullText ? (stderrText.slice(0, 200) || `CLI 退出碼 ${code}`) : null
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('yun:done', { ok: code === 0, fullText })
+          mainWindow.webContents.send('yun:done', { ok, fullText, error })
         }
-        resolve({ ok: code === 0, fullText })
+        resolve({ ok, fullText, error })
       })
 
       proc.on('error', (err) => {
@@ -565,6 +570,16 @@ ipcMain.handle('yun:openrouter', async (event, apiKey, model, prompt) => {
   })
 
   return new Promise((resolve) => {
+    let resolved = false
+    function finish (result) {
+      if (resolved) return
+      resolved = true
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('yun:done', result)
+      }
+      resolve(result)
+    }
+
     const req = https.request({
       hostname: 'openrouter.ai',
       path: '/api/v1/chat/completions',
@@ -573,11 +588,18 @@ ipcMain.handle('yun:openrouter', async (event, apiKey, model, prompt) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://rainote.netlify.app',
-        'X-Title': 'RaiNote'
-      }
+        'X-Title': 'RaiNote',
+        'Connection': 'keep-alive'
+      },
+      timeout: 30000
     }, (res) => {
       let fullText = ''
       let buffer = ''
+
+      res.setTimeout(45000, () => {
+        console.log('[yun:openrouter] Response stream timeout')
+        res.destroy()
+      })
 
       res.on('data', (chunk) => {
         buffer += chunk.toString()
@@ -601,20 +623,25 @@ ipcMain.handle('yun:openrouter', async (event, apiKey, model, prompt) => {
         }
       })
 
+      res.on('error', (err) => {
+        console.log('[yun:openrouter] Response error:', err.message)
+        finish({ ok: false, fullText, error: '連接中斷：' + err.message })
+      })
+
       res.on('end', () => {
         const ok = res.statusCode === 200
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('yun:done', { ok, fullText, error: ok ? null : `HTTP ${res.statusCode}` })
-        }
-        resolve({ ok, fullText })
+        finish({ ok, fullText, error: ok ? null : `HTTP ${res.statusCode}` })
       })
     })
 
+    req.setTimeout(30000, () => {
+      console.log('[yun:openrouter] Request timeout')
+      req.destroy(new Error('Request timeout'))
+    })
+
     req.on('error', (err) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('yun:done', { ok: false, error: err.message })
-      }
-      resolve({ ok: false, error: err.message })
+      console.log('[yun:openrouter] Request error:', err.message)
+      finish({ ok: false, error: '連接失敗：' + err.message })
     })
 
     req.write(body)

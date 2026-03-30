@@ -979,23 +979,24 @@ input[type="range"].style-slider:disabled {
 }
 
 
-/* Yun bubble (hover to expand full reply) — fixed to escape parent overflow:hidden */
+/* Yun bubble — follows cursor, auto-fades */
 .yun-bubble {
   position: fixed;
-  bottom: 36px;
-  right: 8px;
-  max-width: 360px;
-  min-width: 120px;
+  max-width: 280px;
+  min-width: 80px;
   background: var(--paper-warm, var(--paper-light));
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px 16px;
-  box-shadow: 0 4px 16px rgba(28, 16, 8, 0.1);
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(28, 16, 8, 0.12);
   z-index: 200;
-  font-size: 13px;
+  font-family: var(--font-main);
+  font-size: 14px;
   color: var(--ink-2);
   line-height: 1.8;
   letter-spacing: 0.04em;
+  transition: opacity 0.6s ease-out;
+  cursor: pointer;
 }
 .yun-bubble.hidden { display: none; }
 .yun-bubble-text { white-space: pre-wrap; word-break: break-word; }
