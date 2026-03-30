@@ -953,27 +953,21 @@ ${historyText}
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
 
-    // Position bubble near cursor
+    // Position bubble at bottom of editor area, horizontally near cursor
+    const editorAreaRect = document.getElementById('editorArea').getBoundingClientRect()
     const sel = window.getSelection()
-    let bx, by
+    let bx = editorAreaRect.left + editorAreaRect.width / 2 - 140
     if (sel && sel.rangeCount) {
       const rect = sel.getRangeAt(0).getBoundingClientRect()
       if (rect.width || rect.height) {
         bx = rect.left - 140
-        by = rect.bottom + 16
       }
     }
-    if (bx == null) {
-      const editorRect = document.getElementById('editor').getBoundingClientRect()
-      bx = editorRect.left + editorRect.width / 2 - 140
-      by = editorRect.top + editorRect.height / 2
-    }
-    bx = Math.max(8, Math.min(window.innerWidth - 290, bx))
-    by = Math.max(8, Math.min(window.innerHeight - 100, by))
+    bx = Math.max(editorAreaRect.left + 8, Math.min(editorAreaRect.right - 290, bx))
     yunBubbleEl.style.left = bx + 'px'
-    yunBubbleEl.style.top = by + 'px'
+    yunBubbleEl.style.bottom = '44px'
+    yunBubbleEl.style.top = 'auto'
     yunBubbleEl.style.right = 'auto'
-    yunBubbleEl.style.bottom = 'auto'
     if (yunFadeTimer) { clearTimeout(yunFadeTimer); yunFadeTimer = null }
     yunBubbleEl.classList.remove('hidden')
     yunBubbleEl.style.opacity = '1'
