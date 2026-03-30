@@ -82,12 +82,22 @@ const Storage = (() => {
     return `${datePrefix}-${cleanTitle}.md`
   }
 
+  function normalizeTextForWordCount (text) {
+    return String(text || '')
+      // Count custom annotation markup as its visible text only.
+      .replace(/::annotate\[([^\]]+)\]\{images=\[[^\]]*\]\}::/g, '$1')
+      .replace(/\u200B/g, '')
+  }
+
   function countWords (text) {
-    // 中文每字计一，英文按空格分词
-    const cjk = (text.match(/[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]/g) || []).length
-    const latin = (text.replace(/[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]/g, ' ')
-      .match(/\b\w+\b/g) || []).length
-    return cjk + latin
+    const normalized = normalizeTextForWordCount(text)
+
+    // 中文/日文/韩文逐字计数；其余语言按单词计数。
+    const cjkChars = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu
+    const cjk = (normalized.match(cjkChars) || []).length
+    const nonCjkText = normalized.replace(cjkChars, ' ')
+    const words = nonCjkText.match(/[\p{Letter}\p{Number}]+(?:['’-][\p{Letter}\p{Number}]+)*/gu) || []
+    return cjk + words.length
   }
 
   // ─── Public API ───────────────────────────────────
