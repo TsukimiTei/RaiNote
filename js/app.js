@@ -897,6 +897,12 @@
   let yunChunkLogged = false
   window.electron.yun.onChunk((text) => {
     yunFullText += text
+    for (const ch of text) {
+      const span = document.createElement('span')
+      span.className = 'yun-col-char'
+      span.textContent = ch
+      yunColTextEl.appendChild(span)
+    }
     yunBubbleTextEl.textContent = yunFullText
     if (!yunChunkLogged) {
       yunChunkLogged = true
@@ -907,6 +913,7 @@
   window.electron.yun.onDone((result) => {
     yunIsStreaming = false
     if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
+    yunColTextEl.classList.remove('streaming')
 
     if (result.ok && yunFullText) {
       setYunDot('connected')
@@ -923,6 +930,7 @@
     } else if (!result.ok) {
       setYunDot('error')
       yunLog(`錯誤: ${result.error || '未知錯誤'}`, 'err')
+      yunColTextEl.textContent = '芸暫時離開了'
       yunBubbleTextEl.textContent = result.error || '芸暫時離開了'
       if (yunFadeTimer) clearTimeout(yunFadeTimer)
       yunFadeTimer = setTimeout(() => {
@@ -998,6 +1006,8 @@ ${historyText}
     yunIsStreaming = true
     yunFullText = ''
     yunChunkLogged = false
+    yunColTextEl.innerHTML = ''
+    yunColTextEl.classList.add('streaming')
     yunBubbleTextEl.textContent = ''
     setYunDot('streaming')
     yunLog(`發送查詢 [${yunBackend}]${isEmpty ? '（空白提示）' : ''}`)
@@ -1025,8 +1035,10 @@ ${historyText}
     yunStreamingTimeout = setTimeout(() => {
       if (yunIsStreaming) {
         yunIsStreaming = false
+        yunColTextEl.classList.remove('streaming')
         setYunDot('error')
         if (!yunFullText) {
+          yunColTextEl.textContent = '芸暫時離開了'
           yunBubbleTextEl.textContent = '芸暫時離開了'
         }
       }
