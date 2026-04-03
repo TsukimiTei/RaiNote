@@ -9,13 +9,14 @@
   await Storage.init()
 
   let currentNote = null
+  const bootstrapConfig = await window.electron.config.read()
 
   // ─── File system watcher (Finder / Obsidian changes) ──
 
   let fsChangeTimer = null
   window.electron.fs.onChanged(() => {
     if (fsChangeTimer) clearTimeout(fsChangeTimer)
-    fsChangeTimer = setTimeout(() => Sidebar.refresh(), 500)
+    fsChangeTimer = setTimeout(() => Sidebar.refresh({ forceSync: true }), 500)
   })
 
   const vaultDir = Storage.getVaultPath()
@@ -24,12 +25,131 @@
   // ─── Init sub-modules ───────────────────────────
 
   const editorPlaceholderEl = document.getElementById('editorPlaceholder')
+  const pageFrameEl = document.querySelector('.page-frame')
+  const fileListEl = document.getElementById('fileList')
+
+  function seedSidebarFromConfig () {
+    if (!fileListEl) return
+
+    const cachedFiles = Storage.getCachedNotes()
+    const lastPath = bootstrapConfig.lastNotePath
+    const merged = []
+    const seen = new Set()
+
+    for (const file of cachedFiles) {
+      if (!file || !file.path || seen.has(file.path)) continue
+      seen.add(file.path)
+      merged.push(file)
+    }
+
+    if (lastPath && !seen.has(lastPath)) {
+      merged.unshift({
+        name: lastPath.split('/').pop(),
+        path: lastPath,
+        mtime: 0,
+        ctime: 0,
+        created: null
+      })
+    }
+
+    if (!merged.length) return
+
+    fileListEl.innerHTML = ''
+    merged
+      .slice()
+      .sort((a, b) => b.mtime - a.mtime)
+      .forEach(file => {
+        const item = document.createElement('div')
+        item.className = 'file-item'
+        item.dataset.path = file.path
+
+        const title = document.createElement('div')
+        title.className = 'file-item-name'
+        title.textContent = getEmergencyDisplayName(file.name)
+        item.appendChild(title)
+
+        item.addEventListener('click', async () => {
+          await openNote(file.path)
+          fileListEl.querySelectorAll('.file-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.path === file.path)
+          })
+        })
+
+        fileListEl.appendChild(item)
+      })
+  }
+
+  seedSidebarFromConfig()
 
   function updatePlaceholder () {
     const el = document.getElementById('editor')
     const text = (el.textContent || '').replace(/\u200B/g, '').trim()
     const hasContent = text || el.querySelector('img') || el.querySelector('.annotated-text')
     editorPlaceholderEl.style.display = hasContent ? 'none' : ''
+  }
+
+  function getEmergencyDisplayName (filename) {
+    const base = filename.replace('.md', '')
+    if (/^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(base)) return '无题'
+    const match = base.match(/^\d{4}-\d{2}-\d{2}-(.+)$/)
+    return match ? match[1] : base
+  }
+
+  async function renderSidebarFallback () {
+    if (!fileListEl) return false
+    if (fileListEl.querySelector('.file-item')) return false
+
+    let files = await Storage.listNotes()
+    if (!files.length) {
+      const config = await window.electron.config.read()
+      if (config.lastNotePath) {
+        files = [{
+          name: config.lastNotePath.split('/').pop(),
+          path: config.lastNotePath,
+          mtime: 0,
+          ctime: 0,
+          created: null
+        }]
+      }
+    }
+    fileListEl.innerHTML = ''
+
+    if (!files.length) {
+      const item = document.createElement('div')
+      item.className = 'file-item'
+      const title = document.createElement('div')
+      title.className = 'file-item-name'
+      title.style.color = 'var(--ink-faint)'
+      title.textContent = '无笔记'
+      item.appendChild(title)
+      fileListEl.appendChild(item)
+      return true
+    }
+
+    files
+      .slice()
+      .sort((a, b) => b.mtime - a.mtime)
+      .forEach(file => {
+        const item = document.createElement('div')
+        item.className = 'file-item' + (currentNote && currentNote.path === file.path ? ' active' : '')
+        item.dataset.path = file.path
+
+        const title = document.createElement('div')
+        title.className = 'file-item-name'
+        title.textContent = getEmergencyDisplayName(file.name)
+        item.appendChild(title)
+
+        item.addEventListener('click', async () => {
+          await openNote(file.path)
+          fileListEl.querySelectorAll('.file-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.path === file.path)
+          })
+        })
+
+        fileListEl.appendChild(item)
+      })
+
+    return true
   }
 
   Editor.init({
@@ -40,6 +160,7 @@
     },
     onChange: () => {
       updatePlaceholder()
+      scheduleEditorFrameWidth()
       requestAnimationFrame(followCursor)
     }
   })
@@ -56,6 +177,15 @@
       } catch (err) {
         console.error('Failed to create note:', err)
         showToast('创建笔记失败', 'error')
+      }
+    },
+    onRefresh: async () => {
+      try {
+        await Sidebar.refresh({ forceSync: true })
+        showToast('列表已更新')
+      } catch (err) {
+        console.error('Failed to refresh list:', err)
+        showToast('更新列表失败', 'error')
       }
     },
     onExport: async (file) => {
@@ -82,6 +212,7 @@
     try {
       currentNote = preloaded || await Storage.loadNote(filePath)
       Editor.load(currentNote)
+      await Storage.touchNote(filePath)
       updatePlaceholder()
       Sidebar.setActive(filePath)
 
@@ -106,6 +237,7 @@
       requestAnimationFrame(() => {
         editorScrollEl.scrollLeft = 0
         setupEditorColumns()
+        scheduleEditorFrameWidth()
       })
     } catch (err) {
       console.error('Failed to open note:', err)
@@ -194,6 +326,34 @@
 
   function setupEditorColumns () {
     updateColLineStepEditor()
+    syncEditorFrameWidth()
+  }
+
+  function syncEditorFrameWidth () {
+    const editorEl = document.getElementById('editor')
+    const titleEl = document.getElementById('noteTitle')
+    if (!editorEl || !titleEl || !pageFrameEl) return
+
+    const frameStyles = getComputedStyle(pageFrameEl)
+    const borderX =
+      (parseFloat(frameStyles.borderLeftWidth) || 0) +
+      (parseFloat(frameStyles.borderRightWidth) || 0)
+
+    const viewportWidth = editorScrollEl.clientWidth || 0
+    const editorWidth = Math.max(editorEl.scrollWidth, Math.ceil(editorEl.getBoundingClientRect().width))
+    const titleWidth = Math.max(titleEl.scrollWidth, Math.ceil(titleEl.getBoundingClientRect().width))
+    const targetWidth = Math.max(viewportWidth, editorWidth + titleWidth + borderX)
+
+    pageFrameEl.style.width = `${Math.ceil(targetWidth)}px`
+  }
+
+  let syncEditorFrameRaf = null
+  function scheduleEditorFrameWidth () {
+    if (syncEditorFrameRaf) cancelAnimationFrame(syncEditorFrameRaf)
+    syncEditorFrameRaf = requestAnimationFrame(() => {
+      syncEditorFrameRaf = null
+      syncEditorFrameWidth()
+    })
   }
 
   // 打字时，让光标自动滚入可见区域
@@ -492,11 +652,14 @@
   })
 
   document.getElementById('selectVaultBtn').addEventListener('click', async () => {
-    const dir = await window.electron.dialog.openDirectory()
-    if (!dir) return
-    await Storage.setVaultPath(dir)
-    document.getElementById('vaultPathInput').value = dir
-    await window.electron.fs.watch(dir)
+    const selection = await window.electron.dialog.openDirectory({
+      defaultPath: Storage.getVaultPath() || undefined,
+      buttonLabel: '确认'
+    })
+    if (!selection) return
+    await Storage.setVaultPath(selection.path, selection.bookmark)
+    document.getElementById('vaultPathInput').value = selection.path
+    await window.electron.fs.watch(selection.path)
     await Sidebar.refresh()
   })
 
@@ -1054,59 +1217,93 @@ ${historyText}
     }
   }
 
-  // ─── Initial setup ─────────────────────────────
-  setupEditorColumns()
-  requestAnimationFrame(updateColLineStepEditor)
-  checkYunConnection()
+  async function recoverVaultAccessIfNeeded () {
+    const vaultPath = Storage.getVaultPath()
+    if (!vaultPath) return
 
-  await Sidebar.refresh()
-
-  // ─── Welcome screen ──────────────────────────────
-  const welcomeOverlay = document.getElementById('welcomeOverlay')
-  const welcomeLastNote = document.getElementById('welcomeLastNote')
-  const welcomeLastTitle = document.getElementById('welcomeLastTitle')
-  const welcomeLastPreview = document.getElementById('welcomeLastPreview')
-
-  function closeWelcome () {
-    welcomeOverlay.classList.add('hidden')
-  }
-
-  async function showWelcome () {
     const config = await window.electron.config.read()
-    const lastPath = config.lastNotePath
+    const shouldRecover = !!config.lastNotePath || !!config.vaultPath
+    if (!shouldRecover) return
 
-    if (lastPath && await window.electron.fs.exists(lastPath)) {
+    if (Storage.hasCachedNotes()) return
+
+    let notes = await Sidebar.refresh({ forceSync: true })
+    if (notes.length > 0) return
+
+    // Some systems expose the folder a moment later than app startup.
+    for (let i = 0; i < 3; i++) {
+      await new Promise(resolve => setTimeout(resolve, 350))
+      notes = await Sidebar.refresh({ forceSync: true })
+      if (notes.length > 0) return
+    }
+
+    const selection = await window.electron.dialog.openDirectory({
+      defaultPath: vaultPath,
+      buttonLabel: '确认',
+      message: '请确认笔记目录，以恢复启动时的目录访问权限。'
+    })
+    if (!selection) return
+
+    await Storage.setVaultPath(selection.path, selection.bookmark)
+    document.getElementById('vaultPathInput').value = selection.path
+    await window.electron.fs.watch(selection.path)
+    await Sidebar.refresh({ forceSync: true })
+
+    if (config.lastNotePath && config.lastNotePath.startsWith(selection.path + '/')) {
       try {
-        const note = await Storage.loadNote(lastPath)
-        const filename = lastPath.split('/').pop()
-        const title = Storage.extractDisplayTitle(filename)
-        const isDateOnly = /^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(title)
-        welcomeLastTitle.textContent = isDateOnly ? filename.replace('.md', '') : title
-        const plain = (note.body || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-        welcomeLastPreview.textContent = plain.slice(0, 80) || '（空白）'
-        welcomeLastNote.classList.remove('hidden')
-
-        document.getElementById('welcomeOpenLastBtn').onclick = async () => {
-          closeWelcome()
-          await openNote(lastPath, note)
-        }
-      } catch {
-        welcomeLastNote.classList.add('hidden')
+        await openNote(config.lastNotePath)
+      } catch (err) {
+        console.error('Failed to reopen last note after vault recovery:', err)
       }
-    } else {
-      welcomeLastNote.classList.add('hidden')
     }
-
-    document.getElementById('welcomeNewBtn').onclick = async () => {
-      closeWelcome()
-      const todayNote = await Storage.createNote()
-      await openNote(todayNote.path, todayNote)
-      await Sidebar.refresh()
-    }
-
-    welcomeOverlay.classList.remove('hidden')
   }
 
-  await showWelcome()
+  // ─── Initial setup ─────────────────────────────
+  try {
+    setupEditorColumns()
+    requestAnimationFrame(updateColLineStepEditor)
+    requestAnimationFrame(syncEditorFrameWidth)
+    if (typeof ResizeObserver !== 'undefined') {
+      const layoutObserver = new ResizeObserver(() => scheduleEditorFrameWidth())
+      layoutObserver.observe(document.getElementById('editor'))
+      layoutObserver.observe(document.getElementById('noteTitle'))
+      layoutObserver.observe(editorScrollEl)
+    }
+    checkYunConnection()
+
+    let startupNotes = await Sidebar.refresh()
+    if (!startupNotes.length) {
+      await recoverVaultAccessIfNeeded()
+      startupNotes = await Sidebar.refresh()
+    }
+  } catch (err) {
+    const fileList = document.getElementById('fileList')
+    if (fileList) {
+      fileList.innerHTML = ''
+      const item = document.createElement('div')
+      item.className = 'file-item'
+      const title = document.createElement('div')
+      title.className = 'file-item-name'
+      title.style.color = '#c0392b'
+      title.textContent = '啟動失敗'
+      const detail = document.createElement('div')
+      detail.className = 'file-item-debug'
+      detail.textContent = err?.message || String(err)
+      item.appendChild(title)
+      item.appendChild(detail)
+      fileList.appendChild(item)
+    }
+    console.error('Startup failed:', err)
+  }
+
+  const startupLastPath = bootstrapConfig.lastNotePath
+  if (startupLastPath && await window.electron.fs.exists(startupLastPath)) {
+    try {
+      await Storage.seedLastNote(startupLastPath)
+      await openNote(startupLastPath)
+    } catch (err) {
+      console.error('Failed to restore last note:', err)
+    }
+  }
 
 })()

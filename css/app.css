@@ -409,6 +409,16 @@ body {
   text-overflow: ellipsis;
 }
 
+.file-item-debug {
+  margin-top: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+  white-space: normal;
+  word-break: break-all;
+}
+
 .sidebar-footer {
   padding: 8px 12px;
   border-top: 1px solid var(--border-light);

@@ -15,6 +15,7 @@ try {
 
 let mainWindow
 let isUpdating = false
+let stopVaultAccess = null
 
 const isMac = process.platform === 'darwin'
 const isWin = process.platform === 'win32'
@@ -83,6 +84,7 @@ function getUpdaterUnavailableStatus () {
 }
 
 app.whenReady().then(() => {
+  restoreVaultAccessFromConfig()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -276,12 +278,48 @@ ipcMain.handle('fs:unwatch', async () => {
 
 // ─── Dialogs ──────────────────────────────────────────────────────
 
-ipcMain.handle('dialog:openDirectory', async () => {
+function startVaultAccess (bookmark) {
+  if (!bookmark || typeof app.startAccessingSecurityScopedResource !== 'function') return false
+  try {
+    if (stopVaultAccess) {
+      try { stopVaultAccess() } catch {}
+      stopVaultAccess = null
+    }
+    stopVaultAccess = app.startAccessingSecurityScopedResource(bookmark)
+    return true
+  } catch (err) {
+    console.warn('[vault] Failed to start security scoped access:', err.message)
+    stopVaultAccess = null
+    return false
+  }
+}
+
+function restoreVaultAccessFromConfig () {
+  try {
+    if (!fs.existsSync(configPath)) return
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    if (config.vaultBookmark) startVaultAccess(config.vaultBookmark)
+  } catch (err) {
+    console.warn('[vault] Failed to restore bookmark:', err.message)
+  }
+}
+
+ipcMain.handle('dialog:openDirectory', async (_, options = {}) => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
-    title: '选择笔记目录'
+    title: '选择笔记目录',
+    defaultPath: options.defaultPath,
+    buttonLabel: options.buttonLabel,
+    message: options.message,
+    securityScopedBookmarks: true
   })
-  return result.canceled ? null : result.filePaths[0]
+  if (result.canceled || !result.filePaths.length) return null
+
+  const selectedPath = result.filePaths[0]
+  const bookmark = result.bookmarks && result.bookmarks[0] ? result.bookmarks[0] : null
+  if (bookmark) startVaultAccess(bookmark)
+
+  return { path: selectedPath, bookmark }
 })
 
 ipcMain.handle('dialog:openFile', async (_, options) => {

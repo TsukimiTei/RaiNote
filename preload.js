@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('electron', {
     onChanged:  (cb)               => ipcRenderer.on('fs:changed', (_, data) => cb(data))
   },
   dialog: {
-    openDirectory: ()        => ipcRenderer.invoke('dialog:openDirectory'),
+    openDirectory: (options) => ipcRenderer.invoke('dialog:openDirectory', options),
     openFile:      (options) => ipcRenderer.invoke('dialog:openFile', options)
   },
   config: {
