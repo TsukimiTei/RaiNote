@@ -309,7 +309,17 @@ ipcMain.handle('config:read', async () => {
 
 ipcMain.handle('config:write', async (_, config) => {
   try {
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
+    let existing = {}
+    if (fs.existsSync(configPath)) {
+      try {
+        existing = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+      } catch {
+        existing = {}
+      }
+    }
+
+    const nextConfig = { ...existing, ...config }
+    fs.writeFileSync(configPath, JSON.stringify(nextConfig, null, 2), 'utf8')
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
