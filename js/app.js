@@ -340,8 +340,8 @@
       (parseFloat(frameStyles.borderRightWidth) || 0)
 
     const viewportWidth = editorScrollEl.clientWidth || 0
-    const editorWidth = Math.max(editorEl.scrollWidth, Math.ceil(editorEl.getBoundingClientRect().width))
-    const titleWidth = Math.max(titleEl.scrollWidth, Math.ceil(titleEl.getBoundingClientRect().width))
+    const editorWidth = Math.ceil(editorEl.scrollWidth || 0)
+    const titleWidth = Math.ceil(titleEl.scrollWidth || titleEl.offsetWidth || 0)
     const targetWidth = Math.max(viewportWidth, editorWidth + titleWidth + borderX)
 
     pageFrameEl.style.width = `${Math.ceil(targetWidth)}px`
@@ -665,6 +665,22 @@
 
   // ─── Yun backend toggle (CLI vs OpenRouter) ────
   let yunBackend = 'cli'
+  const YUN_PACE_RANGES = {
+    dense:  [10000, 30000],
+    normal: [30000, 120000],
+    sparse: [60000, 180000]
+  }
+  const YUN_COOLDOWN = 10000
+
+  let yunPace = 'normal'
+  let yunRandomTimer = null
+  let yunStreamingTimeout = null
+  let yunIsStreaming = false
+  let yunQueuedRequest = false
+  let yunReplyHistory = []
+  let yunFullText = ''
+  let yunLastSentText = ''
+  let yunFadeTimer = null
 
   document.querySelectorAll('.yun-pace-choice').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -987,26 +1003,38 @@
   const yunDotEl = document.getElementById('yunDot')
 
   function setYunDot (state) {
-    yunDotEl.className = 'yun-dot' + (state !== 'hidden' ? ' ' + state : '')
+    yunDotEl.className = 'yun-dot yun-col-dot' + (state !== 'hidden' ? ' ' + state : '')
   }
 
   async function checkYunConnection () {
-    setYunDot('pending')
-    yunColTextEl.innerHTML = ''
-    stopYunTimer()
-    yunLog(`檢查連接… 後端: ${yunBackend}`)
+    try {
+      setYunDot('pending')
+      yunColTextEl.innerHTML = ''
+      stopYunTimer()
+      yunLog(`檢查連接… 後端: ${yunBackend}`)
 
-    if (yunBackend === 'openrouter') {
-      const key = document.getElementById('openRouterKeyInput').value
-      if (!key) {
-        setYunDot('hidden')
-        yunLog('OpenRouter 未設置 API Key', 'warn')
+      if (yunBackend === 'openrouter') {
+        const config = await window.electron.config.read()
+        const keyInput = document.getElementById('openRouterKeyInput')
+        const modelSelect = document.getElementById('openRouterModelSelect')
+        const key = (keyInput.value || config.openRouterKey || '').trim()
+        const model = modelSelect.value || config.openRouterModel || 'anthropic/claude-haiku-4-5'
+
+        if (!key) {
+          setYunDot('hidden')
+          yunLog('OpenRouter 未設置 API Key', 'warn')
+          return
+        }
+
+        if (!keyInput.value) keyInput.value = key
+        if (!modelSelect.value && model) modelSelect.value = model
+
+        setYunDot('connected')
+        yunLog('OpenRouter 已連接（模型：' + model + '）', 'ok')
+        startYunTimer()
         return
       }
-      setYunDot('connected')
-      yunLog('OpenRouter 已連接（模型：' + document.getElementById('openRouterModelSelect').value + '）', 'ok')
-      startYunTimer()
-    } else {
+
       const result = await window.electron.yun.checkCli()
       if (result.ok) {
         setYunDot('connected')
@@ -1016,25 +1044,11 @@
         setYunDot('hidden')
         yunLog('CLI 未找到 — 請安裝 Claude Code 或點擊檢測', 'err')
       }
+    } catch (err) {
+      setYunDot('error')
+      yunLog('連接檢查失敗: ' + (err?.message || String(err)), 'err')
     }
   }
-
-  const YUN_PACE_RANGES = {
-    dense:  [10000, 30000],
-    normal: [30000, 120000],
-    sparse: [60000, 180000]
-  }
-  const YUN_COOLDOWN = 10000
-
-  let yunPace = 'normal'
-  let yunRandomTimer = null
-  let yunStreamingTimeout = null
-  let yunIsStreaming = false
-  let yunQueuedRequest = false
-  let yunReplyHistory = []
-  let yunFullText = ''
-  let yunLastSentText = ''
-  let yunFadeTimer = null
 
   function getYunRandomDelay () {
     const [min, max] = YUN_PACE_RANGES[yunPace]

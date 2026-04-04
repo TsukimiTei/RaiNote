@@ -153,22 +153,12 @@
   overflow-y: hidden;
   direction: rtl;            /* 滚动起点在右侧 = 文档开头（vertical-rl 首列在右） */
   padding: 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--ink-faint) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .editor-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-.editor-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.editor-scroll::-webkit-scrollbar-thumb {
-  background: var(--ink-faint);
-  border-radius: 3px;
-}
-.editor-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--ink-muted);
+  display: none;
 }
 
 /* 宣纸页面框 — 横向卷轴模式 */
