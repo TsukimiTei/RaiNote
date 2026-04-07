@@ -1037,23 +1037,23 @@ input[type="range"].style-slider:disabled {
 .yun-log-entry.log-err .log-msg { color: #c0392b; }
 .yun-log-entry.log-warn .log-msg { color: #d4a843; }
 
-/* Yun bubble — follows cursor, auto-fades */
+/* Yun bubble — expands from the side column on hover */
 .yun-bubble {
   position: fixed;
-  max-width: 280px;
-  min-width: 80px;
+  max-width: 420px;
+  min-width: 220px;
   background: var(--paper-warm, var(--paper-light));
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: 0 4px 16px rgba(28, 16, 8, 0.12);
+  border-radius: 18px;
+  padding: 20px 24px;
+  box-shadow: 0 16px 40px rgba(28, 16, 8, 0.14);
   z-index: 200;
   font-family: var(--font-main);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--ink-2);
-  line-height: 1.8;
-  letter-spacing: 0.04em;
-  transition: opacity 0.6s ease-out;
+  line-height: 1.95;
+  letter-spacing: 0.06em;
+  transition: opacity 0.18s ease-out;
   cursor: pointer;
 }
 .yun-bubble.hidden { display: none; }

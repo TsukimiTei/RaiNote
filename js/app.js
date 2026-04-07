@@ -215,6 +215,9 @@
       await Storage.touchNote(filePath)
       updatePlaceholder()
       Sidebar.setActive(filePath)
+      yunReplyHistory = getYunNoteState(filePath)?.history || []
+      hideYunBubble()
+      renderYunColumnForCurrentNote()
 
       // Set title in vertical title column
       const filename = filePath.split('/').pop()
@@ -296,6 +299,7 @@
       const { path: newPath, changed } = await Storage.renameNote(notePath, newTitle)
 
       if (changed) {
+        renameYunNoteState(notePath, newPath)
         currentNote.path = newPath
         Editor.setPath(newPath)
         currentNote.meta = await Storage.saveNote(newPath, Editor.getBody(), {
@@ -681,6 +685,74 @@
   let yunFullText = ''
   let yunLastSentText = ''
   let yunFadeTimer = null
+  let yunStreamingNotePath = null
+  const yunNoteState = new Map()
+
+  function getCurrentNotePath () {
+    return currentNote?.path || null
+  }
+
+  function getYunNoteState (notePath) {
+    if (!notePath) return null
+    if (!yunNoteState.has(notePath)) {
+      yunNoteState.set(notePath, {
+        history: [],
+        lastReply: '',
+        lastSentText: ''
+      })
+    }
+    return yunNoteState.get(notePath)
+  }
+
+  function getCurrentYunState () {
+    return getYunNoteState(getCurrentNotePath())
+  }
+
+  function renameYunNoteState (oldPath, newPath) {
+    if (!oldPath || !newPath || oldPath === newPath) return
+    const existing = yunNoteState.get(oldPath)
+    if (!existing) return
+    yunNoteState.set(newPath, existing)
+    yunNoteState.delete(oldPath)
+    if (yunStreamingNotePath === oldPath) yunStreamingNotePath = newPath
+  }
+
+  function getYunPreviewText (text) {
+    const normalized = String(text || '').replace(/\s+/g, ' ').trim()
+    if (!normalized) return ''
+    return normalized.length > 28 ? normalized.slice(0, 28) + '…' : normalized
+  }
+
+  function renderYunColumnForCurrentNote () {
+    const state = getCurrentYunState()
+    const fullText = state?.lastReply || ''
+    yunColTextEl.textContent = getYunPreviewText(fullText)
+    yunColTextEl.dataset.fullReply = fullText
+  }
+
+  function hideYunBubble () {
+    if (yunFadeTimer) {
+      clearTimeout(yunFadeTimer)
+      yunFadeTimer = null
+    }
+    yunBubbleEl.classList.add('hidden')
+    yunBubbleEl.style.opacity = '0'
+  }
+
+  function showYunBubbleForCurrentNote () {
+    const state = getCurrentYunState()
+    const fullText = state?.lastReply || ''
+    if (!fullText || yunIsStreaming) return
+
+    const colRect = document.getElementById('yunCol').getBoundingClientRect()
+    yunBubbleTextEl.textContent = fullText
+    yunBubbleEl.style.right = `${window.innerWidth - colRect.left + 12}px`
+    yunBubbleEl.style.top = `${Math.max(16, colRect.top)}px`
+    yunBubbleEl.style.left = 'auto'
+    yunBubbleEl.style.bottom = 'auto'
+    yunBubbleEl.classList.remove('hidden')
+    yunBubbleEl.style.opacity = '1'
+  }
 
   document.querySelectorAll('.yun-pace-choice').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -1074,13 +1146,13 @@
   let yunChunkLogged = false
   window.electron.yun.onChunk((text) => {
     yunFullText += text
+    if (getCurrentNotePath() !== yunStreamingNotePath) return
     for (const ch of text) {
       const span = document.createElement('span')
       span.className = 'yun-col-char'
       span.textContent = ch
       yunColTextEl.appendChild(span)
     }
-    yunBubbleTextEl.textContent = yunFullText
     if (!yunChunkLogged) {
       yunChunkLogged = true
       yunLog('收到回覆流…')
@@ -1088,7 +1160,10 @@
   })
 
   window.electron.yun.onDone((result) => {
+    const completedNotePath = yunStreamingNotePath
+    const completedState = getYunNoteState(completedNotePath)
     yunIsStreaming = false
+    yunStreamingNotePath = null
     if (yunStreamingTimeout) { clearTimeout(yunStreamingTimeout); yunStreamingTimeout = null }
     yunColTextEl.classList.remove('streaming')
 
@@ -1096,24 +1171,24 @@
       setYunDot('connected')
       const preview = yunFullText.length > 40 ? yunFullText.slice(0, 40) + '…' : yunFullText
       yunLog(`回覆（${yunFullText.length}字）: ${preview}`, 'ok')
-      yunReplyHistory.push(yunFullText)
-      if (yunReplyHistory.length > 10) yunReplyHistory.shift()
-      // Auto-fade bubble after 6 seconds
-      if (yunFadeTimer) clearTimeout(yunFadeTimer)
-      yunFadeTimer = setTimeout(() => {
-        yunBubbleEl.style.opacity = '0'
-        setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
-      }, 6000)
+      if (completedState) {
+        completedState.lastReply = yunFullText.trim()
+        completedState.history.push(completedState.lastReply)
+        if (completedState.history.length > 10) completedState.history.shift()
+        completedState.lastSentText = yunLastSentText
+      }
+      if (getCurrentNotePath() === completedNotePath) {
+        renderYunColumnForCurrentNote()
+      }
     } else if (!result.ok) {
       setYunDot('error')
       yunLog(`錯誤: ${result.error || '未知錯誤'}`, 'err')
-      yunColTextEl.textContent = '芸暫時離開了'
-      yunBubbleTextEl.textContent = result.error || '芸暫時離開了'
-      if (yunFadeTimer) clearTimeout(yunFadeTimer)
-      yunFadeTimer = setTimeout(() => {
-        yunBubbleEl.style.opacity = '0'
-        setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
-      }, 8000)
+      if (completedState) {
+        completedState.lastReply = '芸暫時離開了'
+      }
+      if (getCurrentNotePath() === completedNotePath) {
+        renderYunColumnForCurrentNote()
+      }
     }
 
     if (yunQueuedRequest) {
@@ -1124,45 +1199,35 @@
     }
   })
 
-  // Click dot to show latest reply
-  yunDotEl.addEventListener('click', () => {
-    if (yunReplyHistory.length > 0 && !yunIsStreaming) {
-      yunBubbleTextEl.textContent = yunReplyHistory[yunReplyHistory.length - 1]
-      const dotRect = yunDotEl.getBoundingClientRect()
-      yunBubbleEl.style.right = (window.innerWidth - dotRect.left + 12) + 'px'
-      yunBubbleEl.style.top = dotRect.top + 'px'
-      yunBubbleEl.style.left = 'auto'
-      yunBubbleEl.style.bottom = 'auto'
-      yunBubbleEl.classList.remove('hidden')
-      yunBubbleEl.style.opacity = '1'
-      if (yunFadeTimer) clearTimeout(yunFadeTimer)
-      yunFadeTimer = setTimeout(() => {
-        yunBubbleEl.style.opacity = '0'
-        setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
-      }, 6000)
-    }
+  yunDotEl.addEventListener('mouseenter', showYunBubbleForCurrentNote)
+  yunColTextEl.addEventListener('mouseenter', showYunBubbleForCurrentNote)
+  document.getElementById('yunCol').addEventListener('mouseleave', (event) => {
+    if (yunBubbleEl.contains(event.relatedTarget)) return
+    hideYunBubble()
   })
-
-  // Click bubble to dismiss
-  yunBubbleEl.addEventListener('click', () => {
-    if (yunFadeTimer) { clearTimeout(yunFadeTimer); yunFadeTimer = null }
-    yunBubbleEl.style.opacity = '0'
-    setTimeout(() => yunBubbleEl.classList.add('hidden'), 600)
-  })
+  yunBubbleEl.addEventListener('mouseleave', hideYunBubble)
+  yunBubbleEl.addEventListener('click', hideYunBubble)
 
   async function triggerYun () {
+    const notePath = getCurrentNotePath()
+    if (!notePath) return
+    const noteState = getYunNoteState(notePath)
     const body = Editor.getBody()
     const last100 = body.slice(-100)
     const isEmpty = !last100.trim()
 
-    if (!isEmpty && last100 === yunLastSentText) {
+    if (!isEmpty && last100 === noteState.lastSentText) {
       startYunTimer()
       return
     }
-    if (!isEmpty) yunLastSentText = last100
+    if (!isEmpty) {
+      noteState.lastSentText = last100
+      yunLastSentText = last100
+    }
 
     const title = document.getElementById('noteTitle').textContent || '無題'
 
+    yunReplyHistory = noteState.history
     const historyText = yunReplyHistory.length > 0
       ? '\n\n你之前的回覆：\n' + yunReplyHistory.map((r, i) => `${i + 1}. ${r}`).join('\n')
       : ''
@@ -1171,53 +1236,35 @@
       ? `你是陳芸，《浮生六記》裡的女子——機靈、率真、愛詩文。夫君還未提筆，你在一旁看著。
 ${historyText}
 
-說1句話引他開筆，可以調侃、可以聊閒事、可以引一句詩。語氣像枕邊閒話，自然不造作。不用引號。`
+說1句話引他開筆，可以調侃、可以聊閒事、可以引一句詩。15到28字，不用引號。`
       : `你是陳芸，《浮生六記》裡的女子——機靈、率真、有主見。你不只是溫柔陪伴，你有自己的審美判斷。
 
 你在看夫君寫「${title}」，最近寫的：
 「${last100}」
 ${historyText}
 
-給出你的真實反應，1-2句。可以是欣賞（說好在哪裡）、可以是建議（哪裡能更好）、可以是聯想（想起某首詩某段話）、可以是關心（感受到文字裡的情緒）。像知己間的坦率。不用引號。`
+給出你的真實反應，只回1句，最好18到32字，最多40字。可以是欣賞、提醒、聯想或關心。像知己間的坦率，不用引號。`
 
     yunIsStreaming = true
+    yunStreamingNotePath = notePath
     yunFullText = ''
     yunChunkLogged = false
     yunColTextEl.innerHTML = ''
+    yunColTextEl.dataset.fullReply = ''
     yunColTextEl.classList.add('streaming')
-    yunBubbleTextEl.textContent = ''
+    hideYunBubble()
     setYunDot('streaming')
     yunLog(`發送查詢 [${yunBackend}]${isEmpty ? '（空白提示）' : ''}`)
-
-    // Position bubble at bottom of editor area, horizontally near cursor
-    const editorAreaRect = document.getElementById('editorArea').getBoundingClientRect()
-    const sel = window.getSelection()
-    let bx = editorAreaRect.left + editorAreaRect.width / 2 - 140
-    if (sel && sel.rangeCount) {
-      const rect = sel.getRangeAt(0).getBoundingClientRect()
-      if (rect.width || rect.height) {
-        bx = rect.left - 140
-      }
-    }
-    bx = Math.max(editorAreaRect.left + 8, Math.min(editorAreaRect.right - 290, bx))
-    yunBubbleEl.style.left = bx + 'px'
-    yunBubbleEl.style.bottom = '44px'
-    yunBubbleEl.style.top = 'auto'
-    yunBubbleEl.style.right = 'auto'
-    if (yunFadeTimer) { clearTimeout(yunFadeTimer); yunFadeTimer = null }
-    yunBubbleEl.classList.remove('hidden')
-    yunBubbleEl.style.opacity = '1'
 
     if (yunStreamingTimeout) clearTimeout(yunStreamingTimeout)
     yunStreamingTimeout = setTimeout(() => {
       if (yunIsStreaming) {
         yunIsStreaming = false
         yunColTextEl.classList.remove('streaming')
+        yunStreamingNotePath = null
         setYunDot('error')
-        if (!yunFullText) {
-          yunColTextEl.textContent = '芸暫時離開了'
-          yunBubbleTextEl.textContent = '芸暫時離開了'
-        }
+        noteState.lastReply = '芸暫時離開了'
+        if (getCurrentNotePath() === notePath) renderYunColumnForCurrentNote()
       }
     }, 60000)
 
