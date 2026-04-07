@@ -348,6 +348,7 @@
     const titleWidth = Math.ceil(titleEl.scrollWidth || titleEl.offsetWidth || 0)
     const targetWidth = Math.max(viewportWidth, editorWidth + titleWidth + borderX)
 
+    pageFrameEl.style.setProperty('--note-title-width', `${titleWidth}px`)
     pageFrameEl.style.width = `${Math.ceil(targetWidth)}px`
   }
 
