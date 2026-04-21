@@ -76,6 +76,15 @@
       </svg>
     </button>
 
+    <!-- Send to Apple Notes -->
+    <button id="sendToNotesBtn" class="vt-btn send-notes-btn" title="发送到 Apple Notes">
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+        <path d="M7 9V2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M4 5l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M1 10v3h12v-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
     <!-- Spacer pushes settings to bottom -->
     <div class="vt-spacer"></div>
 
@@ -125,19 +134,12 @@
       <div class="yun-col" id="yunCol">
         <span id="yunDot" class="yun-dot yun-col-dot"></span>
         <div id="yunColText" class="yun-col-text"></div>
-        <button id="sendToNotesBtn" class="send-notes-btn" title="发送到 Apple Notes">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 9V2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-            <path d="M4 5l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M1 10v3h12v-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
       </div>
 
     </section>
 
-    <!-- Status Bar -->
-    <footer class="status-bar">
+    <!-- Status Bar — hidden by user request; DOM kept so saveStatus/createTimeLabel refs don't break -->
+    <footer class="status-bar" hidden>
       <span id="saveStatus" class="save-status">已儲存</span>
       <span id="createTimeLabel" class="create-time"></span>
     </footer>

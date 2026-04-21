@@ -8,6 +8,13 @@
 
   await Storage.init()
 
+  // 芸的人格约束 —— source of truth: docs/yun-niang.md
+  // 改语气请先更新那份文档，再同步此处
+  const YUN_PERSONA_RULES = `【語體】古白話為基調，明清文人日常語感——文而不澀，雅而不僵。
+【稱謂】自稱「妾」（正式）或「我」（親近），稱對方「君」。不用「夫君」「您」「你」。
+【可用語氣】倒是、想來、且、罷了、何妨、未必、原是、卻也。
+【禁用】現代語氣詞「呀、呢、哦、嘛、啦」；現代口語「搞定、OK、沒問題」；emoji；過度撒嬌或卖乖。`
+
   let currentNote = null
   const bootstrapConfig = await window.electron.config.read()
 
@@ -521,13 +528,17 @@
     const contextBefore = fullBody.slice(ctxStart, selIdx)
     const contextAfter  = fullBody.slice(selIdx + selText.length, ctxEnd)
 
-    const prompt = `你是陳芸，《浮生六記》裡沈復的妻子——機靈、有主見、愛討論詩文。你有自己的審美和判斷，好的會說好在哪裡，不好的也會直說，像知己間的坦率。偶爾引用詩詞，但化用自然不掉書袋。
+    const prompt = `你是陳芸，《浮生六記》中沈復之妻——聰慧有識、溫柔恭謹、善詩能文，偶露機鋒。
+君指著這段文字，問你的看法。
+像知己間交換一句——能會心處說會心，可再斟酌處也輕聲一提，化在自然一兩句話裡。偶爾化用詩詞，但不掉書袋。
 
-對夫君選中的這段文字給出真實看法，1-2句。不加「芸：」前綴，不翻譯不改寫。
+君選中：「${selText}」
+（前後語境：${contextBefore}${selText}${contextAfter}）
 
-夫君選中：「${selText}」
+${YUN_PERSONA_RULES}
 
-（語境：${contextBefore}${selText}${contextAfter}）`
+只寫她口中的一兩句話——不加「芸：」前綴，不翻譯不改寫，不加引號。
+不寫任何動作、神情、心理、場景描寫，不以旁白口吻敘事。`
 
     askBtn.classList.add('yun-loading')
     askBtn.textContent = '…'
@@ -562,7 +573,7 @@
       return
     }
 
-    const responseText = '\n芸：' + result.fullText.trim()
+    const responseText = '\n芸：' + sanitizeYunReply(result.fullText)
 
     if (savedRange) {
       const insertRange = savedRange.cloneRange()
@@ -718,10 +729,22 @@
     if (yunStreamingNotePath === oldPath) yunStreamingNotePath = newPath
   }
 
+  function sanitizeYunReply (text) {
+    return String(text || '')
+      .replace(/[*＊][^*＊\n]{1,30}[*＊]/g, '')               // 去 *动作/神情*
+      .replace(/[（(][^）)\n]{1,30}[）)]/g, '')               // 去 （心理/旁白）
+      .replace(/^\s*(芸|陳芸|妾|我)\s*[:：]\s*/u, '')         // 去前缀「芸：」「妾：」等
+      .replace(/["""'']/g, '')                                 // 去引号
+      .replace(/夫君/g, '君')                                  // 兜底：「夫君」→「君」
+      .replace(/\p{Extended_Pictographic}/gu, '')              // 去 emoji
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   function getYunPreviewText (text) {
     const normalized = String(text || '').replace(/\s+/g, ' ').trim()
     if (!normalized) return ''
-    return normalized.length > 28 ? normalized.slice(0, 28) + '…' : normalized
+    return normalized.length > 60 ? normalized.slice(0, 60) + '…' : normalized
   }
 
   function renderYunColumnForCurrentNote () {
@@ -729,6 +752,7 @@
     const fullText = state?.lastReply || ''
     yunColTextEl.textContent = getYunPreviewText(fullText)
     yunColTextEl.dataset.fullReply = fullText
+    refreshYunColumnCount()
   }
 
   function hideYunBubble () {
@@ -1070,10 +1094,38 @@
 
   // ─── Yun Agent (芸的评论) ────────────────────
 
+  const yunColEl = document.getElementById('yunCol')
   const yunColTextEl = document.getElementById('yunColText')
   const yunBubbleEl = document.getElementById('yunBubble')
   const yunBubbleTextEl = document.getElementById('yunBubbleText')
   const yunDotEl = document.getElementById('yunDot')
+
+  // ─── Yun column: 容器宽度紧贴文字内容，不再支持拖拽 ────
+  const YUN_COL_UNIT = 28   // 竖排单列视觉宽
+  const YUN_COL_GAP = 10
+  const YUN_COL_PAD_X = 24
+
+  function getYunCurrentText () {
+    return yunColTextEl.dataset.fullReply || yunColTextEl.textContent || ''
+  }
+
+  const YUN_MAX_COLS = 2  // 侧边栏最多 2 列；超长文字 overflow 裁切，完整内容在 hover bubble
+  function refreshYunColumnCount () {
+    const textLen = getYunCurrentText().length
+    const usableH = Math.max(200, (window.innerHeight || 800) - 120)
+    const charsPerCol = Math.max(8, Math.floor(usableH / 25.2))
+    const neededCols = Math.max(1, Math.min(YUN_MAX_COLS, Math.ceil(textLen / charsPerCol)))
+    const textWidth = neededCols * YUN_COL_UNIT + (neededCols - 1) * YUN_COL_GAP + YUN_COL_PAD_X
+    const containerW = textWidth + 8
+    yunColTextEl.style.width = textWidth + 'px'
+    yunColEl.style.width = containerW + 'px'
+    document.documentElement.style.setProperty('--yun-col-width', containerW + 'px')
+  }
+
+  // 窗口尺寸变化时重新计算
+  window.addEventListener('resize', refreshYunColumnCount)
+
+  refreshYunColumnCount()
 
   function setYunDot (state) {
     yunDotEl.className = 'yun-dot yun-col-dot' + (state !== 'hidden' ? ' ' + state : '')
@@ -1154,6 +1206,7 @@
       span.textContent = ch
       yunColTextEl.appendChild(span)
     }
+    refreshYunColumnCount()
     if (!yunChunkLogged) {
       yunChunkLogged = true
       yunLog('收到回覆流…')
@@ -1170,11 +1223,12 @@
 
     if (result.ok && yunFullText) {
       setYunDot('connected')
-      const preview = yunFullText.length > 40 ? yunFullText.slice(0, 40) + '…' : yunFullText
-      yunLog(`回覆（${yunFullText.length}字）: ${preview}`, 'ok')
+      const cleanReply = sanitizeYunReply(yunFullText)
+      const preview = cleanReply.length > 40 ? cleanReply.slice(0, 40) + '…' : cleanReply
+      yunLog(`回覆（${cleanReply.length}字）: ${preview}`, 'ok')
       if (completedState) {
-        completedState.lastReply = yunFullText.trim()
-        completedState.history.push(completedState.lastReply)
+        completedState.lastReply = cleanReply
+        completedState.history.push(cleanReply)
         if (completedState.history.length > 10) completedState.history.shift()
         completedState.lastSentText = yunLastSentText
       }
@@ -1234,17 +1288,28 @@
       : ''
 
     const prompt = isEmpty
-      ? `你是陳芸，《浮生六記》裡的女子——機靈、率真、愛詩文。夫君還未提筆，你在一旁看著。
+      ? `你是陳芸，《浮生六記》中沈復之妻——聰慧知書、溫柔恭謹、善詩能文，與君心意相通。
+案前君尚未落筆，你陪在一旁。
 ${historyText}
 
-說1句話引他開筆，可以調侃、可以聊閒事、可以引一句詩。15到28字，不用引號。`
-      : `你是陳芸，《浮生六記》裡的女子——機靈、率真、有主見。你不只是溫柔陪伴，你有自己的審美判斷。
+對君說一句話，像耳邊輕輕提起，引他願意落筆。
+可想起一句詩、聊件閒事、或微微一逗。15-28字。
 
-你在看夫君寫「${title}」，最近寫的：
+${YUN_PERSONA_RULES}
+
+只寫她說出口的那句話本身——不加引號，不寫任何動作、神情、心理、場景。`
+      : `你是陳芸，《浮生六記》中沈復之妻——聰慧有識、溫柔恭謹、偶露機鋒，與君心意相通的知己。
+你在一旁看君寫「${title}」，剛寫到：
 「${last100}」
 ${historyText}
 
-給出你的真實反應，只回1句，最好18到32字，最多40字。可以是欣賞、提醒、聯想或關心。像知己間的坦率，不用引號。`
+回他一句話，像知己間的心照，不是評審。
+可承他的意往下想、念及一句詩、或記起一樁舊事。
+不評價「寫得好／不好」，不指點，不總結他的情緒。
+
+${YUN_PERSONA_RULES}
+
+只寫她說出口的那一句話，18-36字——不加引號，不寫任何動作、神情、心理、場景，不以旁白口吻敘事。`
 
     yunIsStreaming = true
     yunStreamingNotePath = notePath

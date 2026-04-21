@@ -427,6 +427,8 @@ body {
 }
 
 /* ─── Status Bar ───────────────────────────────────── */
+.status-bar[hidden] { display: none !important; }
+
 .status-bar {
   height: var(--statusbar-h);
   min-height: var(--statusbar-h);

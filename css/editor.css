@@ -58,18 +58,20 @@
 /* ─── Yun Column (vertical, rightmost) ─────────────── */
 .yun-col {
   flex-shrink: 0;
-  width: 88px;
+  width: var(--yun-col-width, 60px);
   border-left: 1px solid var(--border-light);
   background: var(--paper-light);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: center;  /* 容器紧贴文字（pref+8px），居中后 dot/容器中心/第一列中心三点重合 */
   overflow: hidden;
-  padding-top: 44px;  /* 30px drag region + 14px visual spacing below traffic lights */
+  padding-top: 44px;
+  position: relative;
 }
 
 .yun-col-dot {
   flex-shrink: 0;
+  margin-bottom: 10px;
 }
 
 .yun-col-text {
@@ -80,11 +82,13 @@
   color: var(--ink-muted);
   letter-spacing: 0.1em;
   line-height: 1.8;
-  padding: 16px 10px;
-  width: 100%;
-  flex: 1;
+  padding: 16px 12px;
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   font-style: italic;
   cursor: pointer;
 }
@@ -112,28 +116,7 @@
 
 /* No blinking cursor bar — streaming state indicated by dot only */
 
-/* ─── Send to Apple Notes button ───────────────────── */
-.send-notes-btn {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  margin-bottom: 14px;
-  border-radius: 6px;
-  background: none;
-  border: none;
-  color: var(--ink-faint);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, color 0.15s;
-}
-
-.send-notes-btn:hover {
-  background: var(--paper-shadow);
-  color: var(--accent);
-}
-
+/* ─── Send to Apple Notes button (now lives in .vtoolbar, inherits .vt-btn) ── */
 .send-notes-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
