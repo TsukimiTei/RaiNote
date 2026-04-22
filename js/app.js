@@ -1100,32 +1100,14 @@ ${YUN_PERSONA_RULES}
   const yunBubbleTextEl = document.getElementById('yunBubbleText')
   const yunDotEl = document.getElementById('yunDot')
 
-  // ─── Yun column: 容器宽度紧贴文字内容，不再支持拖拽 ────
-  const YUN_COL_UNIT = 28   // 竖排单列视觉宽
-  const YUN_COL_GAP = 10
-  const YUN_COL_PAD_X = 24
+  // ─── Yun column: 恒为单列，宽度 60px；完整内容在 hover bubble 中显示 ─
+  // 单列保证 dot / 容器中心 / 文字列中心三点重合；超长回复沿竖排自然溢出被裁切。
+  const YUN_COL_WIDTH = 60
+  yunColTextEl.style.width = (YUN_COL_WIDTH - 8) + 'px'
+  yunColEl.style.width = YUN_COL_WIDTH + 'px'
+  document.documentElement.style.setProperty('--yun-col-width', YUN_COL_WIDTH + 'px')
 
-  function getYunCurrentText () {
-    return yunColTextEl.dataset.fullReply || yunColTextEl.textContent || ''
-  }
-
-  const YUN_MAX_COLS = 2  // 侧边栏最多 2 列；超长文字 overflow 裁切，完整内容在 hover bubble
-  function refreshYunColumnCount () {
-    const textLen = getYunCurrentText().length
-    const usableH = Math.max(200, (window.innerHeight || 800) - 120)
-    const charsPerCol = Math.max(8, Math.floor(usableH / 25.2))
-    const neededCols = Math.max(1, Math.min(YUN_MAX_COLS, Math.ceil(textLen / charsPerCol)))
-    const textWidth = neededCols * YUN_COL_UNIT + (neededCols - 1) * YUN_COL_GAP + YUN_COL_PAD_X
-    const containerW = textWidth + 8
-    yunColTextEl.style.width = textWidth + 'px'
-    yunColEl.style.width = containerW + 'px'
-    document.documentElement.style.setProperty('--yun-col-width', containerW + 'px')
-  }
-
-  // 窗口尺寸变化时重新计算
-  window.addEventListener('resize', refreshYunColumnCount)
-
-  refreshYunColumnCount()
+  function refreshYunColumnCount () { /* 保留空函数避免改散落调用点 */ }
 
   function setYunDot (state) {
     yunDotEl.className = 'yun-dot yun-col-dot' + (state !== 'hidden' ? ' ' + state : '')
